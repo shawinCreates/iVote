@@ -1,0 +1,72 @@
+.container{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  background:linear-gradient(135deg,#7f9bcf,#e3a9c7);
+}
+
+.card{
+  width:360px;
+  padding:40px;
+  text-align:center;
+  color:#1c2b4a;
+}
+
+.card h2{
+  margin-bottom:40px;
+  font-weight:500;
+  letter-spacing:2px;
+}
+
+.inputGroup{
+  display:flex;
+  align-items:center;
+  border-bottom:2px solid #1c2b4a;
+  margin-bottom:25px;
+}
+
+.inputGroup span{
+  margin-right:10px;
+}
+
+.inputGroup input{
+  border:none;
+  outline:none;
+  background:transparent;
+  width:100%;
+  padding:10px;
+  font-size:15px;
+}
+
+.options{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  margin-bottom:25px;
+}
+
+.options a{
+  text-decoration:none;
+  color:#1c2b4a;
+}
+
+.card button{
+  width:100%;
+  padding:12px;
+  border:none;
+  background:#0c2d52;
+  color:white;
+  font-weight:600;
+  letter-spacing:1px;
+  cursor:pointer;
+}
+
+.card button:hover{
+  background:#123e6b;
+}
+
+.card p{
+  margin-top:20px;
+  font-size:14px;
+}
