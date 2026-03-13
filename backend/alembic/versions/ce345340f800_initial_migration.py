@@ -1,8 +1,8 @@
-"""initial
+"""initial migration
 
-Revision ID: 85238d9f808f
+Revision ID: ce345340f800
 Revises: 
-Create Date: 2026-02-22 13:02:24.074021
+Create Date: 2026-03-13 11:35:38.359186
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '85238d9f808f'
+revision: str = 'ce345340f800'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -37,14 +37,13 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('password_hash', sa.String(), nullable=False),
-    sa.Column('role', sa.String(), nullable=False),
+    sa.Column('role', sa.Enum('STUDENT', 'ELECTION_HEAD', name='userrole'), nullable=True),
     sa.Column('is_verified', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
-    op.create_index(op.f('ix_users_role'), 'users', ['role'], unique=False)
     op.create_table('positions',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
@@ -58,14 +57,16 @@ def upgrade() -> None:
     op.create_table('students',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('tu_registration_number', sa.String(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('full_name', sa.String(), nullable=False),
     sa.Column('phone', sa.Integer(), nullable=False),
     sa.Column('faculty', sa.String(), nullable=False),
     sa.Column('program', sa.String(), nullable=False),
-    sa.Column('year_or_sem', sa.Integer(), nullable=True),
-    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('year_or_sem', sa.Integer(), nullable=False),
+    sa.Column('id_card_path', sa.String(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
     )
     op.create_index(op.f('ix_students_id'), 'students', ['id'], unique=False)
     op.create_index(op.f('ix_students_tu_registration_number'), 'students', ['tu_registration_number'], unique=True)
@@ -124,7 +125,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_positions_name'), table_name='positions')
     op.drop_index(op.f('ix_positions_id'), table_name='positions')
     op.drop_table('positions')
-    op.drop_index(op.f('ix_users_role'), table_name='users')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')

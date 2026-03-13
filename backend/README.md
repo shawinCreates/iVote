@@ -33,6 +33,9 @@ Create .env file inside backend folder and set following variable
 
 ```bash
 Database_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/ivotedb
+SECRET_KEY=ivote-super-secret-key-2025-campus-election-system
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=480
 ```
 
 - Replace <username> and <password> with your PostgreSQL credentials.
