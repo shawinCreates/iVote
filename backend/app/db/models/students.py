@@ -8,7 +8,6 @@ class Student(Base):
     id = Column(Integer, primary_key=True, index=True)
     tu_registration_number = Column(String, unique=True, nullable=False, index=True)
     full_name = Column(String, nullable=False)
-    phone = Column(Integer, nullable=False)
     faculty = Column(String, nullable=False)
     program = Column(String, nullable=False)
     year_or_sem = Column(Integer, nullable=False)

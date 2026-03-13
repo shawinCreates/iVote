@@ -10,12 +10,11 @@ from app.dependencies import get_db, get_current_user
 
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserResponse
-from app.db.models.users import User
+from app.db.models import User, Student
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ID_CARD_DIR
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# Set up upload directory
 ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/login", response_model=Token)
@@ -24,12 +23,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
     
+    student = db.query(Student).filter(Student.user_id == user.id).first()
+    if not student:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Student record not found")
+
     token = create_access_token({"sub": user.email}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return Token(
         access_token=token,
         token_type="bearer",
         role=user.role.value,
-        full_name=user.full_name,
+        full_name=student.full_name,
         is_verified=user.is_verified
     )
 
@@ -70,8 +73,42 @@ async def register(
         year_or_sem=year_or_sem,
         password=password 
     )
-    return create_user(db, user_data, relative_path)
+    user, student = create_user(db, user_data, relative_path)
+    return UserResponse(
+    id=user.id,  
+    created_at=user.created_at,       
+    email=user.email,
+    full_name=student.full_name,
+    tu_registration_number=student.tu_registration_number,
+    faculty=student.faculty,
+    program=student.program,
+    year_or_sem=student.year_or_sem,
+    role=user.role.value,
+    is_verified=user.is_verified
+    )
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db) 
+):
+    student = db.query(Student).filter(Student.user_id == current_user.id).first()
+
+    if not student:
+        raise HTTPException(
+            status_code=404,
+            detail="Student profile missing"
+        )
+
+    return UserResponse(
+    id=user.id,                        
+    created_at=user.created_at,        
+    email=user.email,
+    full_name=student.full_name,
+    tu_registration_number=student.tu_registration_number,
+    faculty=student.faculty,
+    program=student.program,
+    year_or_sem=student.year_or_sem,
+    role=user.role.value,
+    is_verified=user.is_verified
+)
