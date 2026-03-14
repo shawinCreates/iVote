@@ -1,11 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.db.base import Base
+from app.db.database import Base
 
 class Candidate(Base):
     __tablename__ = "candidates"
-
     __table_args__ = (UniqueConstraint("student_id", "position_id"),)
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,4 +18,4 @@ class Candidate(Base):
 
     student = relationship("Student", back_populates="candidate")
     position = relationship("Position", back_populates="candidate")
-    vote = relationship("Vote", back_populates="candidate")
+    vote = relationship("Vote", back_populates="candidate", cascade="all, delete-orphan")

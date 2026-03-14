@@ -1,16 +1,20 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, CheckConstraint, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.db.base import Base
+from app.db.database import Base
+import enum
+
+class UserRole(str, enum.Enum):
+    STUDENT = "student"
+    ELECTION_HEAD = "election_head"
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("role in ('ADMIN', 'STUDENT')"),)
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False, index=True)
+    role = Column(SQLEnum(UserRole), default=UserRole.STUDENT)
     is_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
