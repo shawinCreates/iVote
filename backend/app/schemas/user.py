@@ -21,7 +21,7 @@ class UserCreate(UserBase):
     program: str
     year_or_sem: int
 
-class UserResponse(UserBase):
+class UserResponse(UserBase, StudentBase):
     id: int
     role :UserRole
     is_verified: bool 

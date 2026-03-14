@@ -13,7 +13,7 @@ from app.schemas.user import UserCreate, UserResponse
 from app.db.models import User, Student
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ID_CARD_DIR
 
-router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+router = APIRouter(tags=["Authentication"])
 
 ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -36,6 +36,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         is_verified=user.is_verified
     )
 
+@router.post("/signup", response_model=UserResponse)
 @router.post("/register", response_model=UserResponse)
 async def register(
     email: str = Form(...),
@@ -75,16 +76,16 @@ async def register(
     )
     user, student = create_user(db, user_data, relative_path)
     return UserResponse(
-    id=user.id,  
-    created_at=user.created_at,       
-    email=user.email,
-    full_name=student.full_name,
-    tu_registration_number=student.tu_registration_number,
-    faculty=student.faculty,
-    program=student.program,
-    year_or_sem=student.year_or_sem,
-    role=user.role.value,
-    is_verified=user.is_verified
+        id=user.id,
+        created_at=user.created_at,
+        email=user.email,
+        full_name=student.full_name,
+        tu_registration_number=student.tu_registration_number,
+        faculty=student.faculty,
+        program=student.program,
+        year_or_sem=student.year_or_sem,
+        role=user.role.value,
+        is_verified=user.is_verified,
     )
 
 @router.get("/me", response_model=UserResponse)
@@ -101,14 +102,14 @@ async def get_me(
         )
 
     return UserResponse(
-    id=user.id,                        
-    created_at=user.created_at,        
-    email=user.email,
-    full_name=student.full_name,
-    tu_registration_number=student.tu_registration_number,
-    faculty=student.faculty,
-    program=student.program,
-    year_or_sem=student.year_or_sem,
-    role=user.role.value,
-    is_verified=user.is_verified
-)
+        id=current_user.id,
+        created_at=current_user.created_at,
+        email=current_user.email,
+        full_name=student.full_name,
+        tu_registration_number=student.tu_registration_number,
+        faculty=student.faculty,
+        program=student.program,
+        year_or_sem=student.year_or_sem,
+        role=current_user.role.value,
+        is_verified=current_user.is_verified
+    )

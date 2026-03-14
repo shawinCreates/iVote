@@ -5,12 +5,9 @@ from typing import Annotated
 from jose import jwt, JWTError
 from app.db.database import SessionLocal
 from app.db.models import User
-import os
+from app.core.config import SECRET_KEY, ALGORITHM
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def get_db():
     db = SessionLocal()
