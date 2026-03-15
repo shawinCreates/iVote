@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated
 from jose import jwt, JWTError
 from app.db.database import SessionLocal
-from app.db.models import User
+from app.db.models import User, UserRole
 import os
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -48,3 +48,25 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+async def get_current_verified_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role == UserRole.ELECTION_HEAD:
+        return current_user
+    if not current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has not been verified yet. Please wait for the admin to approve your account"
+        )
+    return current_user
+
+async def get_admin(
+        current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != UserRole.ELECTION_HEAD:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not autorized. Admin access required."
+        )
+    return current_user

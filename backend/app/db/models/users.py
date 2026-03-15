@@ -6,6 +6,7 @@ import enum
 
 class UserRole(str, enum.Enum):
     STUDENT = "student"
+    CANDIDATE = "candidate"
     ELECTION_HEAD = "election_head"
 
 class User(Base):
@@ -16,6 +17,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(SQLEnum(UserRole), default=UserRole.STUDENT)
     is_verified = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     student = relationship("Student", back_populates="user", uselist=False, cascade="all, delete") #useList=False due to 1 to 1 relationship
+    audit_logs = relationship("AuditLog", back_populates="user")

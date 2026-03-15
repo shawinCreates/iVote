@@ -24,7 +24,8 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: int
     role :UserRole
-    is_verified: bool 
+    is_verified: bool
+    is_active: bool
     created_at: datetime
     
     class Config:

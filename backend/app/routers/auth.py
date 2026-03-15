@@ -12,6 +12,7 @@ from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserResponse
 from app.db.models import User, Student
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ID_CARD_DIR
+from app.schemas import user
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
