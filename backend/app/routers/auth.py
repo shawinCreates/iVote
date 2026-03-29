@@ -1,115 +1,147 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from __future__ import annotations
+import re
+import shutil
+import time
+from collections import defaultdict
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pathlib import Path
-import shutil, os
-from datetime import timedelta
 
-from app.services.auth_services import authenticate_user, create_access_token, create_user, get_user_by_email, get_user_by_tu_number
-from app.dependencies import get_db, get_current_user
+from backend.app.services.auth_services import authenticate, create_student, create_token, get_current_user, get_user_by_email, get_user_by_tu, mark_notifications_read
+from db import get_db
+from db.models import User
+from schemas import schemas
 
-from app.schemas.token import Token
-from app.schemas.user import UserCreate, UserResponse
-from app.db.models import User, Student
-from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ID_CARD_DIR
-from app.schemas import user
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+_BASE_DIR    = Path(__file__).resolve().parents[4]
+_ID_CARD_DIR = _BASE_DIR / "uploads" / "id_cards"
+_ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 
-ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_MAX_ATTEMPTS = 10        # max failures per window
+_WINDOW_SEC   = 300       # 5-minute window
 
-@router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
-    
-    student = db.query(Student).filter(Student.user_id == user.id).first()
-    if not student:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Student record not found")
+_MAX_ID_CARD_BYTES = 5 * 1024 * 1024   # 5 MB
 
-    token = create_access_token({"sub": user.email}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    return Token(
-        access_token=token,
-        token_type="bearer",
-        role=user.role.value,
-        full_name=student.full_name,
-        is_verified=user.is_verified
-    )
+_PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
 
-@router.post("/register", response_model=UserResponse)
-async def register(
-    email: str = Form(...),
-    password: str = Form(...),
-    full_name: str = Form(...),
-    tu_registration_number: str = Form(...),
-    faculty: str = Form(...),
-    program: str = Form(...),
-    year_or_sem: int = Form(...),
-    id_card: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    if get_user_by_email(db, email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if get_user_by_tu_number(db, tu_registration_number):
-        raise HTTPException(status_code=400, detail="TU Registration number already registered")
+_SAFE_TU_RE = re.compile(r'^[A-Za-z0-9.\-_]+$')
 
-    allowed = ["image/jpeg", "image/png", "image/jpg", "application/pdf"]
-    if id_card.content_type not in allowed:
-        raise HTTPException(status_code=400, detail="Only JPG, PNG, JPEG or PDF allowed")
-    
-    ext = os.path.splitext(id_card.filename)[1].lower()
-    file_path = ID_CARD_DIR / f"idcard_{tu_registration_number}{ext}"
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(id_card.file, buffer)
 
-    relative_path = f"uploads/id_cards/idcard_{tu_registration_number}{ext}"
-
-    user_data = UserCreate(
-        email=email,
-        full_name=full_name,
-        tu_registration_number=tu_registration_number,
-        faculty=faculty,
-        program=program,
-        year_or_sem=year_or_sem,
-        password=password 
-    )
-    user, student = create_user(db, user_data, relative_path)
-    return UserResponse(
-    id=user.id,  
-    created_at=user.created_at,       
-    email=user.email,
-    full_name=student.full_name,
-    tu_registration_number=student.tu_registration_number,
-    faculty=student.faculty,
-    program=student.program,
-    year_or_sem=student.year_or_sem,
-    role=user.role.value,
-    is_verified=user.is_verified
-    )
-
-@router.get("/me", response_model=UserResponse)
-async def get_me(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db) 
-):
-    student = db.query(Student).filter(Student.user_id == current_user.id).first()
-
-    if not student:
+def _check_rate_limit(ip: str) -> None:
+    now = time.time()
+    attempts = _login_attempts[ip]
+    _login_attempts[ip] = [t for t in attempts if now - t < _WINDOW_SEC]
+    if len(_login_attempts[ip]) >= _MAX_ATTEMPTS:
         raise HTTPException(
-            status_code=404,
-            detail="Student profile missing"
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please wait 5 minutes before trying again.",
         )
 
-    return UserResponse(
-    id=user.id,                        
-    created_at=user.created_at,        
-    email=user.email,
-    full_name=student.full_name,
-    tu_registration_number=student.tu_registration_number,
-    faculty=student.faculty,
-    program=student.program,
-    year_or_sem=student.year_or_sem,
-    role=user.role.value,
-    is_verified=user.is_verified
-)
+
+def _record_failure(ip: str) -> None:
+    _login_attempts[ip].append(time.time())
+
+
+@router.post("/login", response_model=schemas.TokenOut)
+async def login(
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host
+    _check_rate_limit(ip)
+
+    user = authenticate(db, form.username, form.password)
+    if not user:
+        _record_failure(ip)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+    if not user.is_active:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated. You may re-register with corrected information.",
+        )
+    _login_attempts[ip] = []
+    token = create_token(user.id, user.role.value)
+    return schemas.TokenOut(access_token=token, user=user)
+
+
+@router.post("/register", response_model=schemas.UserOut, status_code=201)
+async def register(
+    email:                  str        = Form(...),
+    full_name:              str        = Form(...),
+    tu_registration_number: str        = Form(...),
+    faculty:                str        = Form(...),
+    year:                   int        = Form(...),
+    password:               str        = Form(...),
+    id_card:                UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if year < 1 or year > 10:
+        raise HTTPException(400, detail="Year must be between 1 and 10")
+
+    if not _PASSWORD_RE.match(password):
+        raise HTTPException(
+            400,
+            detail="Password must be at least 8 characters and contain at least one letter and one digit",
+        )
+
+    if get_user_by_email(db, email):
+        raise HTTPException(400, detail="Email is already registered")
+    if get_user_by_tu(db, tu_registration_number):
+        raise HTTPException(400, detail="TU registration number is already registered")
+
+    allowed_types = {"image/jpeg", "image/png", "image/jpg", "application/pdf"}
+    if id_card.content_type not in allowed_types:
+        raise HTTPException(400, detail="ID card must be JPG, PNG, or PDF")
+
+    content = await id_card.read()
+    if len(content) > _MAX_ID_CARD_BYTES:
+        raise HTTPException(400, detail="ID card file must be smaller than 5 MB")
+    import io
+    id_card.file = io.BytesIO(content)
+
+    if not _SAFE_TU_RE.match(tu_registration_number):
+        raise HTTPException(400, detail="TU registration number contains invalid characters")
+
+    ext_map = {
+        "image/jpeg": ".jpg",
+        "image/jpg":  ".jpg",
+        "image/png":  ".png",
+        "application/pdf": ".pdf",
+    }
+    ext  = ext_map[id_card.content_type]
+    dest = _ID_CARD_DIR / f"id_{tu_registration_number}{ext}"
+    with dest.open("wb") as f:
+        shutil.copyfileobj(id_card.file, f)
+
+    relative = f"uploads/id_cards/id_{tu_registration_number}{ext}"
+    return create_student(
+        db, email, full_name, tu_registration_number,
+        faculty, year, password, relative,
+    )
+
+
+@router.get("/me", response_model=schemas.UserOut)
+async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.get("/notifications", response_model=list[schemas.NotificationOut])
+async def get_notifications(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_notifications(db, user.id)
+
+
+@router.post("/notifications/read")
+async def mark_read(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    mark_notifications_read(db, user.id)
+    return {"ok": True}

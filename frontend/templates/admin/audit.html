@@ -1,0 +1,97 @@
+{% extends "base_app.html" %}
+{% block title %}Audit Logs — iVote Admin{% endblock %}
+{% block sidebar_role %}Election Head{% endblock %}
+{% block page_title %}Audit &amp; Monitoring{% endblock %}
+{% block sidebar_nav %}
+<div class="nav-label">Overview</div>
+<a href="/admin/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+<div class="nav-label">Management</div>
+<a href="/admin/students"   class="nav-item"><span class="nav-icon">👥</span><span>Students</span></a>
+<a href="/admin/elections"  class="nav-item"><span class="nav-icon">🗳️</span><span>Elections</span></a>
+<a href="/admin/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span></a>
+<a href="/admin/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<div class="nav-label">System</div>
+<a href="/admin/audit"      class="nav-item active"><span class="nav-icon">🔎</span><span>Audit Logs</span></a>
+{% endblock %}
+{% block content %}
+<!-- Summary stats -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px" id="audit-stats">
+  <div class="skeleton" style="height:80px;border-radius:12px"></div>
+  <div class="skeleton" style="height:80px;border-radius:12px"></div>
+  <div class="skeleton" style="height:80px;border-radius:12px"></div>
+  <div class="skeleton" style="height:80px;border-radius:12px"></div>
+</div>
+<!-- Filters -->
+<div class="card" style="margin-bottom:22px">
+  <div class="card-body" style="padding:14px 20px">
+    <div class="filter-bar">
+      <input class="form-control" style="flex:1;max-width:300px" placeholder="🔍 Search actions, users, details…" oninput="filterLogs(this.value)">
+      <select class="form-control" style="max-width:220px" id="action-filter" onchange="filterLogs()">
+        <option value="">All Actions</option>
+        <option value="HE_VOTE_CAST">🗳️ Votes Cast (HE)</option>
+        <option value="STUDENT_VERIFIED">✅ Student Verified</option>
+        <option value="STUDENT_REJECTED">✕ Student Rejected</option>
+        <option value="CANDIDATE_APPROVED">✓ Candidate Approved</option>
+        <option value="CANDIDATE_REJECTED">✕ Candidate Rejected</option>
+        <option value="CANDIDACY_APPLIED">📋 Candidacy Applied</option>
+        <option value="ELECTION_CREATED">🗳️ Election Created</option>
+        <option value="ELECTION_STATUS_CHANGED">🔄 Status Changed</option>
+        <option value="HE_KEYS_GENERATED">🔐 HE Keys Generated</option>
+        <option value="HE_TALLY_COMPLETED">📊 Tally Completed</option>
+        <option value="RESULTS_PUBLISHED">📊 Results Published</option>
+        <option value="CANDIDATES_LOCKED">🔒 Candidates Locked</option>
+      </select>
+      <a href="/api/admin/audit-logs/export" class="btn btn-sm btn-outline">⬇ Export CSV</a>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-hd"><div class="card-title">Audit Trail</div><span id="log-count" style="font-size:13px;color:var(--g400)">Loading…</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Timestamp</th><th>Action</th><th>Performed By</th><th>Details</th><th>IP</th></tr></thead>
+      <tbody id="audit-tbody"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--g400)">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<script>
+let logs=[];
+const ICONS={HE_VOTE_CAST:'🗳️',STUDENT_VERIFIED:'✅',STUDENT_REJECTED:'❌',CANDIDATE_APPROVED:'✓',CANDIDATE_REJECTED:'✕',ELECTION_CREATED:'🗳️',ELECTION_STATUS_CHANGED:'🔄',HE_KEYS_GENERATED:'🔐',HE_TALLY_COMPLETED:'📊',HE_TALLY_ERROR:'⚠️',RESULTS_PUBLISHED:'📊',CANDIDATES_LOCKED:'🔒',CANDIDACY_APPLIED:'📋'};
+const COLORS={HE_VOTE_CAST:'var(--success)',STUDENT_VERIFIED:'var(--success)',STUDENT_REJECTED:'var(--crimson)',CANDIDATE_APPROVED:'var(--success)',CANDIDATE_REJECTED:'var(--crimson)',HE_KEYS_GENERATED:'var(--info)',HE_TALLY_COMPLETED:'var(--success)',RESULTS_PUBLISHED:'var(--gold)'};
+async function loadLogs() {
+  try {
+    logs=await iVote.$.admin.audit();
+    const votes=logs.filter(l=>l.action==='HE_VOTE_CAST').length;
+    const verifs=logs.filter(l=>l.action==='STUDENT_VERIFIED').length;
+    const apps=logs.filter(l=>l.action==='CANDIDACY_APPLIED').length;
+    const changes=logs.filter(l=>l.action==='ELECTION_STATUS_CHANGED').length;
+    document.getElementById('audit-stats').innerHTML=`
+      <div style="background:white;border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px"><div style="font-size:22px">🗳️</div><div><div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800">${votes}</div><div style="font-size:12px;color:var(--g400)">Votes Cast</div></div></div>
+      <div style="background:white;border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px"><div style="font-size:22px">✅</div><div><div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800">${verifs}</div><div style="font-size:12px;color:var(--g400)">Verifications</div></div></div>
+      <div style="background:white;border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px"><div style="font-size:22px">📋</div><div><div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800">${apps}</div><div style="font-size:12px;color:var(--g400)">Applications</div></div></div>
+      <div style="background:white;border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px"><div style="font-size:22px">🔄</div><div><div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800">${changes}</div><div style="font-size:12px;color:var(--g400)">Status Changes</div></div></div>`;
+    renderLogs(logs);
+  } catch(e) { iVote.showAlert(e.message,'danger'); }
+}
+function renderLogs(data) {
+  const esc = iVote.esc;
+  document.getElementById('log-count').textContent=`${data.length} entries`;
+  const tb=document.getElementById('audit-tbody');
+  if (!data.length) { tb.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">🔎</div><div class="empty-title">No logs found</div></div></td></tr>'; return; }
+  tb.innerHTML=data.map(l=>`<tr>
+    <td style="font-size:12px;color:var(--g400);font-family:monospace">${l.id}</td>
+    <td style="font-size:12px;white-space:nowrap">${iVote.fmtDate(l.timestamp)}</td>
+    <td><span style="font-size:13px;font-weight:600;color:${COLORS[l.action]||'var(--navy)'}">${ICONS[l.action]||'•'} ${esc(l.action.replace(/_/g,' '))}</span></td>
+    <td style="font-size:13px">${l.user?`<div style="font-weight:500">${esc(l.user.full_name)}</div><div style="font-size:11px;color:var(--g400)">${esc(l.user.role.replace(/_/g,' '))}</div>`:'<span style="color:var(--g400);font-size:12px">System</span>'}</td>
+    <td style="font-size:13px;color:var(--g600);max-width:260px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(l.details||'')}">${esc(l.details||'—')}</div></td>
+    <td style="font-size:12px;font-family:monospace;color:var(--g400)">${esc(l.ip_address||'—')}</td>
+  </tr>`).join('');
+}
+function filterLogs(q='') {
+  const action=document.getElementById('action-filter').value;
+  const sq=typeof q==='string'?q:document.querySelector('.filter-bar input').value;
+  renderLogs(logs.filter(l=>(!action||l.action===action)&&(!sq||l.action.toLowerCase().includes(sq.toLowerCase())||(l.details&&l.details.toLowerCase().includes(sq.toLowerCase()))||(l.user&&l.user.full_name.toLowerCase().includes(sq.toLowerCase())))));
+}
+loadLogs();
+</script>
+{% endblock %}

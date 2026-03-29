@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Register — iVote{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-left">
+    <div class="auth-brand">iVote</div>
+    <p class="auth-tagline">Register to participate in your campus democratic process.</p>
+    <div class="auth-features">
+      <div class="auth-feat"><div class="auth-feat-icon">📝</div>Submit your TU registration number</div>
+      <div class="auth-feat"><div class="auth-feat-icon">🪪</div>Upload your college ID card</div>
+      <div class="auth-feat"><div class="auth-feat-icon">⏳</div>Wait for Election Head verification</div>
+      <div class="auth-feat"><div class="auth-feat-icon">🗳️</div>Vote or run for a position!</div>
+    </div>
+  </div>
+  <div class="auth-right" style="align-items:flex-start">
+    <div class="auth-card" style="max-width:480px">
+      <h1>Student Registration</h1>
+      <p class="sub">Create your account to participate</p>
+      <div id="alert-box"></div>
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="req">*</span></label>
+        <input type="text" class="form-control" id="full_name" placeholder="Ram Prasad Sharma">
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input type="email" class="form-control" id="email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">TU Reg. Number <span class="req">*</span></label>
+          <input type="text" class="form-control" id="tu_reg" placeholder="e.g. 2-2-0101-234-2021">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Faculty <span class="req">*</span></label>
+          <select class="form-control" id="faculty">
+            <option value="">Select Faculty</option>
+            <option>Science &amp; Technology</option>
+            <option>Management</option>
+            <option>Humanities &amp; Social Sciences</option>
+            <option>Education</option>
+            <option>Law</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year <span class="req">*</span></label>
+          <select class="form-control" id="year">
+            <option value="">Select Year</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+            <option value="5">5th Year</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Password <span class="req">*</span></label>
+          <input type="password" class="form-control" id="password" placeholder="Min. 8 characters">
+          <span class="form-error" id="pw-err"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password <span class="req">*</span></label>
+          <input type="password" class="form-control" id="cpw" placeholder="Re-enter password">
+          <span class="form-error" id="cpw-err"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">College ID Card <span class="req">*</span></label>
+        <label class="file-zone" for="id_card">
+          <input type="file" id="id_card" accept="image/jpeg,image/png,application/pdf">
+          <div class="file-zone-icon" id="fz-icon">📄</div>
+          <div class="file-zone-text" id="fz-text">Click to upload JPG, PNG or PDF (max 5 MB)</div>
+          <img id="id-preview" style="display:none;max-width:160px;margin:12px auto 0;border-radius:8px;border:2px solid var(--g200)">
+        </label>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" id="reg-btn" onclick="doRegister()">Create Account</button>
+      <div class="auth-footer">Already have an account? <a href="/">Login here</a></div>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('id_card').addEventListener('change', function() {
+  const f = this.files[0];
+  if (!f) return;
+  document.getElementById('fz-icon').textContent = '✅';
+  document.getElementById('fz-text').textContent = f.name;
+  if (f.type.startsWith('image/')) {
+    const img = document.getElementById('id-preview');
+    img.src = URL.createObjectURL(f);
+    img.style.display = 'block';
+  }
+});
+
+async function doRegister() {
+  const pw  = document.getElementById('password').value;
+  const cpw = document.getElementById('cpw').value;
+  document.getElementById('pw-err').textContent = '';
+  document.getElementById('cpw-err').textContent = '';
+  if (pw.length < 8)  { document.getElementById('pw-err').textContent  = 'Minimum 8 characters'; return; }
+  if (pw !== cpw)     { document.getElementById('cpw-err').textContent = 'Passwords do not match'; return; }
+  const file = document.getElementById('id_card').files[0];
+  if (!file) { iVote.showAlert('Please upload your college ID card', 'warning', document.getElementById('alert-box')); return; }
+  if (file.size > 5*1024*1024) { iVote.showAlert('File must be smaller than 5 MB', 'warning', document.getElementById('alert-box')); return; }
+  const fd = new FormData();
+  fd.append('email',                  document.getElementById('email').value.trim());
+  fd.append('full_name',              document.getElementById('full_name').value.trim());
+  fd.append('tu_registration_number', document.getElementById('tu_reg').value.trim());
+  fd.append('faculty',                document.getElementById('faculty').value);
+  fd.append('year',                   document.getElementById('year').value);
+  fd.append('password',               pw);
+  fd.append('id_card',                file);
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  iVote.showSpinner();
+  try {
+    const res = await fetch('/api/auth/register', { method:'POST', body:fd });
+    iVote.hideSpinner();
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail||'Registration failed'); }
+    iVote.showAlert('✅ Registration successful! Your account is pending verification by the Election Head. You will be notified once approved.', 'success', document.getElementById('alert-box'));
+    setTimeout(() => window.location.href = '/', 3500);
+  } catch(e) {
+    iVote.hideSpinner();
+    btn.disabled = false; btn.textContent = 'Create Account';
+    iVote.showAlert(e.message, 'danger', document.getElementById('alert-box'));
+  }
+}
+</script>
+{% endblock %}

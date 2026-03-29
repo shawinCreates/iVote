@@ -1,0 +1,180 @@
+{% extends "base_app.html" %}
+{% block title %}Candidates — iVote{% endblock %}
+{% block sidebar_role %}Student Portal{% endblock %}
+{% block page_title %}Explore Candidates{% endblock %}
+{% block sidebar_nav %}
+<div class="nav-label">Participation</div>
+<a href="/student/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+<a href="/student/candidates" class="nav-item active"><span class="nav-icon">🏅</span><span>Candidates</span></a>
+<a href="/student/vote"       class="nav-item"><span class="nav-icon">🗳️</span><span>Vote</span></a>
+<a href="/student/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<div class="nav-label">My Account</div>
+<a href="/student/candidacy"  class="nav-item"><span class="nav-icon">📋</span><span>My Candidacy</span></a>
+{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:22px">
+  <div class="card-body" style="padding:14px 20px">
+    <div class="filter-bar">
+      <div style="display:flex;align-items:center;gap:8px;flex:1">
+        <label style="font-size:13px;font-weight:600;white-space:nowrap">Election:</label>
+        <select class="form-control" id="el-select" onchange="onElectionChange()" style="max-width:320px">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+      <input class="form-control" id="search" placeholder="🔍 Search candidates…" oninput="filterCands()" style="max-width:240px">
+    </div>
+  </div>
+</div>
+<div id="cands-container">
+  <div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">Loading candidates…</div></div>
+</div>
+
+<!-- Candidate Detail Modal -->
+<div class="modal-overlay" id="cand-modal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-hd"><div class="modal-title" id="cm-title"></div><button class="modal-close">✕</button></div>
+    <div class="modal-body" id="cm-body"></div>
+    <div class="modal-ft">
+      <button class="btn btn-outline" onclick="iVote.closeModal('cand-modal')">Close</button>
+      <a href="/student/vote" class="btn btn-primary" id="cm-vote-btn">Cast Your Vote →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+let allCands=[], electionData=null, allElections=[];
+
+async function init() {
+  try {
+    allElections = await iVote.$.elections.all();
+    const sel = document.getElementById('el-select');
+    const visible = allElections.filter(e=>['nomination_open','voting_open','closed','results_published'].includes(e.status));
+    if (!visible.length) {
+      sel.innerHTML = '<option value="">No elections available</option>';
+      document.getElementById('cands-container').innerHTML = '<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">No elections available yet</div><div class="empty-text">Candidates will appear once an election begins nominations.</div></div>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— Select an election —</option>' +
+      visible.map(e=>`<option value="${e.id}">${iVote.esc(e.name)} (${iVote.esc(e.status.replace(/_/g,' '))})</option>`).join('');
+    const pref = visible.find(e=>e.status==='voting_open') || visible[0];
+    sel.value = pref.id;
+    await onElectionChange();
+  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading content</div></div>`; }
+}
+
+async function onElectionChange() {
+  const eid = document.getElementById('el-select').value;
+  if (!eid) { document.getElementById('cands-container').innerHTML='<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">Select an election above</div></div>'; return; }
+  document.getElementById('cands-container').innerHTML='<div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">Loading candidates…</div></div>';
+  try {
+    electionData = allElections.find(e=>e.id==eid);
+    allCands = [];
+    for (const pos of electionData.positions) {
+      const cands = await iVote.$.candidates.forPosition(pos.id);
+      cands.forEach(c=>{ c._posName=pos.name; c._posMax=pos.max_votes; });
+      allCands.push(...cands);
+    }
+    filterCands();
+  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading content</div></div>`; }
+}
+
+function filterCands() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const data = q ? allCands.filter(c=>
+    c.user.full_name.toLowerCase().includes(q) ||
+    (c.party_affiliation&&c.party_affiliation.toLowerCase().includes(q)) ||
+    (c.manifesto&&c.manifesto.toLowerCase().includes(q)) ||
+    (c._posName&&c._posName.toLowerCase().includes(q))
+  ) : allCands;
+  renderCands(data);
+}
+
+function renderCands(data) {
+  const e = iVote.esc;
+  const cont = document.getElementById('cands-container');
+  if (!data.length) { cont.innerHTML='<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">No approved candidates yet</div><div class="empty-text">Candidates will appear once the Election Head approves their applications.</div></div>'; return; }
+  const byPos={};
+  data.forEach(c=>{ const k=c._posName||('Position '+c.position_id); if(!byPos[k]) byPos[k]={max:c._posMax,items:[]}; byPos[k].items.push(c); });
+  let html='';
+  for (const [posName,grp] of Object.entries(byPos)) {
+    html+=`<div class="pos-section">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--navy)">
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--navy);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">★</div>
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:700">${e(posName)}</div>
+          <div style="font-size:12px;color:var(--crimson);font-weight:600">${grp.max>1?`Vote for up to ${grp.max}`:'Vote for 1 candidate'} · ${grp.items.length} candidate${grp.items.length!==1?'s':''}</div>
+        </div>
+      </div>
+      <div class="cand-grid">
+        ${grp.items.map(c=>`
+        <div class="cand-card" onclick="viewCand(${c.id})">
+          <div class="cand-photo">${c.photo_path?`<img src="/${e(c.photo_path)}" alt="${e(c.user.full_name)}" onerror="this.style.display='none'">`:`<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
+          <div class="cand-body">
+            <div class="cand-name">${e(c.user.full_name)}</div>
+            <div class="cand-pos">${e(posName)}</div>
+            <div class="cand-party">${e(c.party_affiliation||'Independent Candidate')}</div>
+            <div class="cand-manifesto">${e((c.manifesto||'No manifesto provided.').substring(0,120))}</div>
+            <div class="cand-meta"><span class="cand-views">👁 ${c.profile_views} views</span><span style="font-size:12px;color:var(--crimson);font-weight:600">Read More →</span></div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
+}
+
+function viewCand(candId) {
+  // Fix #8: look up by id from local array — never pass raw objects through onclick strings
+  const c = allCands.find(x=>x.id===candId);
+  if (!c) return;
+  const e = iVote.esc;
+  const votingOpen = electionData && electionData.status==='voting_open';
+  document.getElementById('cm-title').textContent = c.user.full_name;
+  document.getElementById('cm-vote-btn').style.display = votingOpen?'':'none';
+  const body = document.getElementById('cm-body');
+  body.innerHTML = '';
+
+  // Photo + info row
+  const topRow = document.createElement('div');
+  topRow.style.cssText = 'display:flex;gap:18px;margin-bottom:18px;align-items:flex-start';
+  const photoWrap = document.createElement('div');
+  photoWrap.style.cssText = 'width:100px;height:120px;border-radius:12px;background:linear-gradient(135deg,var(--navy),var(--navy-mid));overflow:hidden;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;flex-shrink:0';
+  if (c.photo_path) {
+    const img = document.createElement('img');
+    img.src = '/' + c.photo_path;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover';
+    img.onerror = () => { photoWrap.textContent = c.user.full_name[0]; };
+    photoWrap.appendChild(img);
+  } else {
+    photoWrap.textContent = c.user.full_name[0];
+  }
+  const infoDiv = document.createElement('div');
+  infoDiv.style.flex = '1';
+  infoDiv.innerHTML = `
+    <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700">${e(c.user.full_name)}</div>
+    <div style="color:var(--crimson);font-weight:600;margin-top:4px">${e(c._posName||'Candidate')}</div>
+    <div style="font-size:13px;color:var(--g400);margin-top:5px">${e(c.party_affiliation||'Independent')} · ${e(c.user.faculty)} · Year ${e(c.user.year)}</div>
+    <div style="font-size:12px;color:var(--g400);margin-top:4px">👁 ${c.profile_views} profile views</div>
+    ${c._posMax>1?`<div style="margin-top:8px"><span class="badge badge-candidate">Multi-seat · Up to ${c._posMax} winners</span></div>`:''}`;
+  topRow.appendChild(photoWrap);
+  topRow.appendChild(infoDiv);
+  body.appendChild(topRow);
+
+  // Manifesto header
+  const mLabel = document.createElement('div');
+  mLabel.style.cssText = 'font-weight:700;font-size:14px;margin-bottom:10px;font-family:\'Playfair Display\',serif';
+  mLabel.textContent = '📜 Manifesto & Agenda';
+  body.appendChild(mLabel);
+
+  // Manifesto text — textContent prevents XSS
+  const mText = document.createElement('div');
+  mText.style.cssText = 'background:var(--off-white);padding:18px;border-radius:10px;font-size:14px;line-height:1.8;color:var(--g600);white-space:pre-wrap';
+  mText.textContent = c.manifesto || 'No manifesto provided.';
+  body.appendChild(mText);
+
+  iVote.openModal('cand-modal');
+  iVote.$.candidates.get(c.id).catch(()=>{});
+}
+init();
+</script>
+{% endblock %}
