@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}iVote{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+
+  <script src="/static/js/main.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">i<span>Vote</span></div>
+        <div class="brand-sub">{% block sidebar_role %}Campus Elections{% endblock %}</div>
+      </div>
+      <nav class="sidebar-nav">
+        {% block sidebar_nav %}{% endblock %}
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="user-card">
+          <div class="user-avatar" id="sb-avatar">?</div>
+          <div>
+            <div class="user-name" id="sb-name">Loading…</div>
+            <div class="user-role" id="sb-role">—</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+        <div class="topbar-right">
+          <div class="notif-wrap">
+            <button class="notif-btn" id="notif-btn" title="Notifications">
+              🔔<span class="notif-dot" id="notif-dot"></span>
+            </button>
+            <div class="notif-panel" id="notif-panel">
+              <div class="notif-panel-header">Notifications</div>
+              <div class="notif-list" id="notif-list"></div>
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="iVote.logout()">↪ Logout</button>
+        </div>
+      </header>
+      <main class="page" id="page-main">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+
+</html>

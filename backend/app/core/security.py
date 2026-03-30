@@ -1,9 +1,9 @@
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated = "auto")
+_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def hash_password(plain: str) -> str:
+    return _ctx.hash(plain)
 
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+def verify_password(plain: str, hashed: str) -> bool:
+    return _ctx.verify(plain, hashed)
