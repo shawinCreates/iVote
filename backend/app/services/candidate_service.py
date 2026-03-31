@@ -1,10 +1,12 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from app.db.models import( Candidate, Position, ApprovalStatus, ElectionStatus, UserRole)
+from backend.app.services.audit_notification_service import _audit, _notify
 
-from utils import _audit, _notify, _now
-from services import get_election
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 def get_pending_candidates(db: Session,
                            election_id: Optional[int] = None) -> List[Candidate]:
@@ -39,8 +41,6 @@ def apply_candidacy(db: Session, user_id: int, position_id: int,
     if e.candidates_locked:
         raise ValueError("The candidate list has been locked")
 
-    # Fix (new requirement): one position per election — check if user already applied
-    # to ANY position in this same election
     existing_in_election = (
         db.query(Candidate)
         .join(Position, Candidate.position_id == Position.id)
