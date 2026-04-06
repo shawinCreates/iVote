@@ -3,10 +3,11 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from backend.app.core.crypto import pub_from_json
-from backend.app.db.models import ApprovalStatus, Candidate, ElectionStatus, EncryptedVote, VoterParticipation
-from backend.app.schemas.schemas import HEBallotIn, VoteConfirmation
-from backend.app.services.audit_notification_service import _audit
+from app.core.crypto import ballot_from_json, pub_from_json
+from app.db.models import ApprovalStatus, Candidate, ElectionStatus, EncryptedVote, VoterParticipation
+from app.schemas.schemas import HEBallotIn, VoteConfirmation
+from app.services.audit_notification_service import _audit
+from app.services.election_service import get_election
 
 def has_voted(db: Session, user_id: int, election_id: int) -> bool:
     return (db.query(VoterParticipation)
@@ -77,7 +78,7 @@ def cast_he_ballot(db: Session, user_id: int,
             )
 
         try:
-            enc = he.ballot_from_json(pos_ballot.encrypted_ballot_json, pk)
+            enc = ballot_from_json(pos_ballot.encrypted_ballot_json, pk)
         except Exception as enc_err:
             raise ValueError(f"Malformed encrypted ballot for position '{pos.name}': {enc_err}")
         if len(enc) != info["approved_count"]:
