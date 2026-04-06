@@ -1,6 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+<<<<<<< HEAD
 from typing import List
+=======
+from app.db.database import get_db
+from app.db.models import ElectionStatus, User, UserRole
+from app.routers.elections import get_results
+from app.schemas.schemas import ElectionResults, HEBallotIn, HasVotedOut, VoteConfirmation
+from app.services.election_service import get_election
+from app.services.voting_service import cast_he_ballot, get_participation
+from app.utils.dependencies import require_verified
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 from app.db.database import get_db
 from app.db.models import User

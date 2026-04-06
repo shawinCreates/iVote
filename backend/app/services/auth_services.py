@@ -1,15 +1,8 @@
 from __future__ import annotations
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import List, Optional
-import os
-
-from dotenv import load_dotenv
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+<<<<<<< HEAD
 from backend.app.core.security import hash_password, verify_password
 from backend.app.db.database import get_db
 from backend.app.db.models import AuditLog, Notification, User, UserRole
@@ -71,6 +64,12 @@ ACCESS_TOKEN_EXPIRE_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # User
+=======
+from app.core.security import hash_password
+from app.db.models import User, UserRole
+from app.services.audit_notification_service import _audit, _notify
+
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
@@ -140,89 +139,3 @@ def reject_student(db: Session, user_id: int, admin_id: int,
            details=f"Rejected user ID {user_id}", ip=ip)  # Fix #28: no PII
     db.commit()
     return True
-
-
-# ── Token helpers ──────────────────────────────────────────────────────────
-
-def create_token(user_id: int, role: str) -> str:
-    # Fix #27: Use timezone-aware datetime
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MIN)
-    return jwt.encode(
-        {"sub": str(user_id), "role": role, "exp": expire},
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
-
-
-def authenticate(db: Session, email: str, password: str) -> Optional[User]:
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
-        return None
-    return user
-
-
-# ── FastAPI dependencies ───────────────────────────────────────────────────
-
-async def get_current_user(
-    token: str = Depends(oauth2),
-    db: Session = Depends(get_db),
-) -> User:
-    exc = HTTPException(
-        status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
-        raise exc
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise exc
-    if not user.is_active:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Your account has been deactivated.",
-        )
-    return user
-
-
-async def require_verified(user: User = Depends(get_current_user)) -> User:
-    if user.role == UserRole.ELECTION_HEAD:
-        return user          # admin is always verified
-    if not user.is_verified:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Your account is pending verification by the Election Head.",
-        )
-    return user
-
-
-async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != UserRole.ELECTION_HEAD:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Admin access required.",
-        )
-    return user
-
-# ── Notifications ─────────────────────────────────────────────────────────
-
-def get_notifications(db: Session, user_id: int) -> List[Notification]:
-    return (
-        db.query(Notification)
-        .filter(Notification.user_id == user_id)
-        .order_by(Notification.created_at.desc())
-        .limit(25)
-        .all()
-    )
-
-
-def mark_notifications_read(db: Session, user_id: int) -> None:
-    (
-        db.query(Notification)
-        .filter(Notification.user_id == user_id, Notification.is_read == False)
-        .update({"is_read": True})
-    )
-    db.commit()

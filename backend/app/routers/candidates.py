@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from app.db.database import get_db
 from app.db.models import Candidate, User, UserRole
+<<<<<<< HEAD
 from app.schemas.schemas import CandidateOut, RejectReasonIn
 from app.services.auth_services import require_admin, require_verified
 from app.services.candidate_service import (
@@ -12,6 +13,11 @@ from app.services.candidate_service import (
     approve_candidate as approve_cand_service,
     reject_candidate as reject_cand_service
 )
+=======
+from app.schemas.schemas import CandidateOut, RejectReasonIn, RejectReasonIn
+from app.services.candidate_service import apply_candidacy, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views
+from app.utils.dependencies import require_admin, require_verified
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 router = APIRouter(tags=["Candidates"])
 
@@ -100,7 +106,6 @@ async def apply(
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
-#"/api/candidates/{candidate_id}/view"
 
 # Admin-facing
 @router.get("/candidates/pending", response_model=List[CandidateOut])
