@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import engine, Base
-from app.routers import auth
+from app.routers import auth, elections, candidates, results, users, voting
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -24,6 +24,11 @@ Base.metadata.create_all(bind=engine)
 
 # Include routers (exposed at root so frontend can call /login and /signup directly)
 app.include_router(auth.router)
+app.include_router(elections.router)
+app.include_router(candidates.router)
+app.include_router(results.router)
+app.include_router(users.router)
+app.include_router(voting.router)
 
 # Root endpoint
 @app.get("/")
