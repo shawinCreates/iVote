@@ -3,12 +3,9 @@ import hashlib
 import json
 from typing import List, Tuple
 
-import phe
 from phe import paillier
 
-
 KEY_BITS = 2048
-
 
 # Key generation 
 def generate_keypair(n_bits: int = KEY_BITS) -> Tuple[paillier.PaillierPublicKey,
@@ -42,7 +39,6 @@ def ballot_to_json(ballot: List[paillier.EncryptedNumber]) -> str:
 def ballot_from_json(s: str, pk: paillier.PaillierPublicKey) -> List[paillier.EncryptedNumber]:
     return [enc_from_dict(d, pk) for d in json.loads(s)]
 
-
 # Fingerprint 
 def fingerprint(pk: paillier.PaillierPublicKey) -> str:
     """
@@ -51,7 +47,6 @@ def fingerprint(pk: paillier.PaillierPublicKey) -> str:
     """
     n_bytes = pk.n.to_bytes((pk.n.bit_length() + 7) // 8, byteorder="big")
     return hashlib.sha256(n_bytes).hexdigest().upper()
-
 
 # Core operations
 def encrypt_ballot(pk: paillier.PaillierPublicKey,

@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadF
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Candidate, User, UserRole
-from backend.app.schemas.schemas import CandidateOut, RejectReasonIn, RejectReasonIn
-from backend.app.services.auth_services import require_admin, require_verified
-from backend.app.services.candidate_service import apply_candidacy, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views
+from app.db.database import get_db
+from app.db.models import Candidate, User, UserRole
+from app.schemas.schemas import CandidateOut, RejectReasonIn, RejectReasonIn
+from app.services.candidate_service import apply_candidacy, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views
+from app.utils.dependencies import require_admin, require_verified
 
 router = APIRouter(tags=["Candidates"])
 
@@ -95,7 +95,6 @@ async def apply(
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
-#"/api/candidates/{candidate_id}/view"
 
 # Admin-facing
 @router.get("/candidates/pending", response_model=List[CandidateOut])
