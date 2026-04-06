@@ -6,7 +6,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+<<<<<<< HEAD
+from app.db.models import Election, ElectionStatus, User
+=======
 from app.db.models import ElectionStatus, User
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 from app.schemas.schemas import ElectionIn, ElectionOut, ElectionResults
 from app.services.auth_services import require_admin, require_verified
 from app.services.election_service import (

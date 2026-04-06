@@ -20,7 +20,15 @@ from app.db.models import (
     VoterParticipation,
 )
 from app.schemas.schemas import (
+<<<<<<< HEAD
+    ElectionIn,
+    ElectionOut,
+    ElectionResults,
+    CandidateResult,
+    PositionResult,
+=======
     ElectionIn
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 )
 from app.services.audit_notification_service import _audit, _notify
 

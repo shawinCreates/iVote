@@ -6,11 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.db.database import engine, Base
+<<<<<<< HEAD
+from app.routers import auth, elections, candidates, results, users, voting
+=======
 from app.utils.dependencies import get_current_user
 from app.services.schedular_service import start
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -33,6 +37,15 @@ app.add_middleware(
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
+<<<<<<< HEAD
+# Include routers (exposed at root so frontend can call /login and /signup directly)
+app.include_router(auth.router)
+app.include_router(elections.router)
+app.include_router(candidates.router)
+app.include_router(results.router)
+app.include_router(users.router)
+app.include_router(voting.router)
+=======
 app.mount(
     "/static",
     StaticFiles(directory=str(BASE_DIR / "frontend" / "static")),
@@ -94,6 +107,7 @@ app.add_route("/admin/elections",     page("admin/elections.html"),         meth
 app.add_route("/admin/candidates",    page("admin/candidates.html"),        methods=["GET"])
 app.add_route("/admin/results",       page("admin/results.html"),           methods=["GET"])
 app.add_route("/admin/audit",         page("admin/audit.html"),             methods=["GET"])
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 # Root endpoint
 @app.get("/")

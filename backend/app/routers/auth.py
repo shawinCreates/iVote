@@ -9,6 +9,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+<<<<<<< HEAD
+from app.services.auth_services import authenticate, create_student, create_token, get_current_user, get_user_by_email, get_user_by_tu, mark_notifications_read
+from app.db.database import get_db
+from app.db.models import User
+from app.schemas import schemas
+=======
 from app.services.auth_services import create_student, get_user_by_email, get_user_by_tu
 from app.services.audit_notification_service import mark_notifications_read
 from app.utils.dependencies import get_current_user
@@ -17,6 +23,7 @@ from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import NotificationOut, TokenOut, UserOut
 
+>>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -139,7 +146,8 @@ async def get_notifications(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return get_notifications(db, user.id)
+    from app.services.auth_services import get_notifications as fetch_notifications
+    return fetch_notifications(db, user.id)
 
 
 @router.post("/notifications/read")
