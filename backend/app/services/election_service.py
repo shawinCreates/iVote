@@ -8,7 +8,7 @@ from typing import List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.app.db.models import (
+from app.db.models import (
     AuditLog,
     Candidate,
     ApprovalStatus,
@@ -20,14 +20,14 @@ from backend.app.db.models import (
     UserRole,
     VoterParticipation,
 )
-from backend.app.schemas.schemas import (
+from app.schemas.schemas import (
     ElectionIn,
     ElectionOut,
     ElectionResults,
     CandidateResult,
     PositionResult,
 )
-from backend.app.services.audit_notification_service import _audit, _notify
+from app.services.audit_notification_service import _audit, _notify
 
 
 def _now() -> datetime:

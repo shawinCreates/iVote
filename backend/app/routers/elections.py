@@ -17,11 +17,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Election, ElectionStatus, User
-from backend.app.schemas.schemas import ElectionIn, ElectionOut, ElectionResults
-from backend.app.services.auth_services import require_admin, require_verified
-from backend.app.services.election_service import (
+from app.db.database import get_db
+from app.db.models import Election, ElectionStatus, User
+from app.schemas.schemas import ElectionIn, ElectionOut, ElectionResults
+from app.services.auth_services import require_admin, require_verified
+from app.services.election_service import (
     create_election,
     export_audit_csv,
     get_admin_stats,

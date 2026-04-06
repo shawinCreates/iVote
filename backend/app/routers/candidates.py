@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadF
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Candidate, User, UserRole
-from backend.app.schemas.schemas import CandidateOut, RejectReasonIn, RejectReasonIn
-from backend.app.services.auth_services import require_admin, require_verified
-from backend.app.services.candidate_service import apply_candidacy, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views
+from app.db.database import get_db
+from app.db.models import Candidate, User, UserRole
+from app.schemas.schemas import CandidateOut, RejectReasonIn
+from app.services.auth_services import require_admin, require_verified
+from app.services.candidate_service import (
+    apply_candidacy, get_all_candidates, get_approved_candidates, 
+    get_pending_candidates, increment_views, 
+    approve_candidate as approve_cand_service,
+    reject_candidate as reject_cand_service
+)
 
 router = APIRouter(tags=["Candidates"])
 
@@ -122,7 +127,7 @@ async def approve_candidate(
     admin: User = Depends(require_admin),
 ):
     try:
-        return approve_candidate(db, candidate_id, admin.id)
+        return approve_cand_service(db, candidate_id, admin.id)
     except ValueError as err:
         raise HTTPException(400, detail=str(err))
 
@@ -135,6 +140,6 @@ async def reject_candidate(
     admin: User = Depends(require_admin),
 ):
     try:
-        return reject_candidate(db, candidate_id, admin.id, body.reason)
+        return reject_cand_service(db, candidate_id, admin.id, body.reason)
     except ValueError as err:
         raise HTTPException(400, detail=str(err))

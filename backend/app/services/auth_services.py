@@ -10,14 +10,14 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from backend.app.core.security import hash_password, verify_password
 from backend.app.db.database import get_db
-from backend.app.db.models import Notification, User, UserRole
+from backend.app.db.models import AuditLog, Notification, User, UserRole
+
+NOTIFICATION_LIMIT = 50
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[3] / ".env")
 
-
-
-from backend.app.db.models import AuditLog, Notification
 
 
 def _audit(
@@ -214,7 +214,7 @@ def get_notifications(db: Session, user_id: int) -> List[Notification]:
         db.query(Notification)
         .filter(Notification.user_id == user_id)
         .order_by(Notification.created_at.desc())
-        .limit(NOTIFICATION_LIMIT)
+        .limit(25)
         .all()
     )
 
