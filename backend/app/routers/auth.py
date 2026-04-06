@@ -9,10 +9,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from backend.app.services.auth_services import authenticate, create_student, create_token, get_current_user, get_user_by_email, get_user_by_tu, mark_notifications_read
-from db import get_db
-from db.models import User
-from schemas import schemas
+from app.services.auth_services import create_student, get_user_by_email, get_user_by_tu
+from app.services.audit_notification_service import mark_notifications_read
+from app.utils.dependencies import get_current_user
+from app.utils.helpers import authenticate, create_token
+from app.db.database import get_db
+from app.db.models import User
+from app.schemas.schemas import NotificationOut, TokenOut, UserOut
+
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -46,7 +50,7 @@ def _record_failure(ip: str) -> None:
     _login_attempts[ip].append(time.time())
 
 
-@router.post("/login", response_model=schemas.TokenOut)
+@router.post("/login", response_model=TokenOut)
 async def login(
     request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
@@ -66,10 +70,10 @@ async def login(
         )
     _login_attempts[ip] = []
     token = create_token(user.id, user.role.value)
-    return schemas.TokenOut(access_token=token, user=user)
+    return TokenOut(access_token=token, user=user)
 
 
-@router.post("/register", response_model=schemas.UserOut, status_code=201)
+@router.post("/register", response_model=UserOut, status_code=201)
 async def register(
     email:                  str        = Form(...),
     full_name:              str        = Form(...),
@@ -125,12 +129,12 @@ async def register(
     )
 
 
-@router.get("/me", response_model=schemas.UserOut)
+@router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
     return user
 
 
-@router.get("/notifications", response_model=list[schemas.NotificationOut])
+@router.get("/notifications", response_model=list[NotificationOut])
 async def get_notifications(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -3,7 +3,8 @@ from typing import List, Optional
 from datetime import datetime, timezone
 
 from app.db.models import( Candidate, Position, ApprovalStatus, ElectionStatus, UserRole)
-from backend.app.services.audit_notification_service import _audit, _notify
+from app.services.audit_notification_service import _audit, _notify
+from app.services.election_service import get_election
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)

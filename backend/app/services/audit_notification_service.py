@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.orm import Session
-from backend.app.db.models import ApprovalStatus, AuditLog, Candidate, Election, ElectionStatus, Notification, User, UserRole, VoterParticipation
+from app.db.models import ApprovalStatus, AuditLog, Candidate, Election, ElectionStatus, Notification, User, UserRole, VoterParticipation
 
 def get_admin_stats(db: Session) -> dict:
     return {
