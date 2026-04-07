@@ -4,22 +4,22 @@
 {% block page_title %}My Candidacy{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Participation</div>
-<a href="/student/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
-<a href="/student/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span></a>
-<a href="/student/vote"       class="nav-item"><span class="nav-icon">🗳️</span><span>Vote</span></a>
-<a href="/student/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/student/dashboard"  class="nav-item"><span>Dashboard</span></a>
+<a href="/student/candidates" class="nav-item"><span>Candidates</span></a>
+<a href="/student/vote"       class="nav-item"><span>Vote</span></a>
+<a href="/student/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">My Account</div>
-<a href="/student/candidacy"  class="nav-item active"><span class="nav-icon">📋</span><span>My Candidacy</span></a>
+<a href="/student/candidacy"  class="nav-item active"><span>My Candidacy</span></a>
 {% endblock %}
 {% block content %}
 <div id="cand-content">
-  <div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">Loading…</div></div>
+  <div class="empty"><div class="empty-title">Loading…</div></div>
 </div>
 
 <!-- Apply Modal -->
 <div class="modal-overlay" id="apply-modal">
   <div class="modal" style="max-width:620px">
-    <div class="modal-hd"><div class="modal-title">📋 Apply for Candidacy</div><button class="modal-close">✕</button></div>
+    <div class="modal-hd"><div class="modal-title">Apply for Candidacy</div><button class="modal-close">✕</button></div>
     <div class="modal-body">
       <div class="form-group">
         <label class="form-label">Position <span class="req">*</span></label>
@@ -57,8 +57,7 @@ let nomElection=null;
 
 document.getElementById('ap-photo').addEventListener('change',function(){
   const f=this.files[0]; if(!f) return;
-  if(f.size>5*1024*1024){showErr('File must be smaller than 5 MB');this.value='';return;}
-  document.getElementById('fz-icon').textContent='✅';
+  if(f.size>5*1024*1024){showErr('File must be smaller than 5 MB');this.value='';return;};
   document.getElementById('fz-text').textContent=f.name;
   const img=document.getElementById('fz-preview');
   img.src=URL.createObjectURL(f); img.style.display='block'; clearErr();
@@ -75,7 +74,7 @@ async function loadPage() {
     const e = iVote.esc;
     let html='';
     if (nomElection) {
-      html+=`<div class="alert alert-info" style="margin-bottom:22px">📋 <strong>Nominations are open</strong> for <em>${e(nomElection.name)}</em>.${!nomElection.candidates_locked?' Apply for a position now!':' The candidate list has been locked.'}</div>`;
+      html+=`<div class="alert alert-info" style="margin-bottom:22px"> <strong>Nominations are open</strong> for <em>${e(nomElection.name)}</em>.${!nomElection.candidates_locked?' Apply for a position now!':' The candidate list has been locked.'}</div>`;
     }
     if (mine.length) {
       html+=`<div class="card" style="margin-bottom:22px">
@@ -95,20 +94,20 @@ async function loadPage() {
     }
     if (nomElection&&!nomElection.candidates_locked) {
       html+=`<div class="card"><div class="card-body" style="text-align:center;padding:48px 32px">
-        <div style="font-size:52px;margin-bottom:18px">🏅</div>
+        <div style="font-size:52px;margin-bottom:18px"></div>
         <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;margin-bottom:10px">Run for a Position</div>
         <p style="color:var(--g600);margin-bottom:26px;max-width:440px;margin-left:auto;margin-right:auto">
           Apply to contest in <strong>${e(nomElection.name)}</strong>. Your profile will be reviewed by the Election Head and published to voters once approved.
         </p>
-        <button class="btn btn-primary btn-lg" onclick="openApply()">📋 Apply for Candidacy</button>
+        <button class="btn btn-primary btn-lg" onclick="openApply()"> Apply for Candidacy</button>
       </div></div>`;
     } else if (!mine.length&&!nomElection) {
-      html+=`<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">No candidacy applications</div><div class="empty-text">Applications can be submitted during the nomination period. Check back when nominations open.</div></div>`;
+      html+=`<div class="empty"><div class="empty-icon"></div><div class="empty-title">No candidacy applications</div><div class="empty-text">Applications can be submitted during the nomination period. Check back when nominations open.</div></div>`;
     } else if (!mine.length&&nomElection&&nomElection.candidates_locked) {
-      html+=`<div class="empty"><div class="empty-icon">🔒</div><div class="empty-title">Candidate list locked</div><div class="empty-text">The nomination period for ${e(nomElection.name)} has ended.</div></div>`;
+      html+=`<div class="empty"><div class="empty-icon"></div><div class="empty-title">Candidate list locked</div><div class="empty-text">The nomination period for ${e(nomElection.name)} has ended.</div></div>`;
     }
     cont.innerHTML=html;
-  } catch(err) { document.getElementById('cand-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading page</div></div>`; }
+  } catch(err) { document.getElementById('cand-content').innerHTML=`<div class="empty"><div class="empty-icon"></div><div class="empty-title">Error loading page</div></div>`; }
 }
 
 function openApply() {
@@ -119,7 +118,6 @@ function openApply() {
   document.getElementById('ap-manifesto').value='';
   document.getElementById('ap-party').value='';
   document.getElementById('ap-photo').value='';
-  document.getElementById('fz-icon').textContent='📷';
   document.getElementById('fz-text').textContent='Click to upload JPG or PNG (max 5 MB)';
   document.getElementById('fz-preview').style.display='none';
   clearErr();

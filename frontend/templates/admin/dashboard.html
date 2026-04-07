@@ -4,14 +4,14 @@
 {% block page_title %}Dashboard{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Overview</div>
-<a href="/admin/dashboard"  class="nav-item active"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+<a href="/admin/dashboard"  class="nav-item active"><span>Dashboard</span></a>
 <div class="nav-label">Management</div>
-<a href="/admin/students"   class="nav-item"><span class="nav-icon">👥</span><span>Students</span><span class="nav-badge" id="nb-s"></span></a>
-<a href="/admin/elections"  class="nav-item"><span class="nav-icon">🗳️</span><span>Elections</span></a>
-<a href="/admin/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span><span class="nav-badge" id="nb-c"></span></a>
-<a href="/admin/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/admin/students"   class="nav-item"><span>Students</span><span class="nav-badge" id="nb-s"></span></a>
+<a href="/admin/elections"  class="nav-item"><span>Elections</span></a>
+<a href="/admin/candidates" class="nav-item"><span>Candidates</span><span class="nav-badge" id="nb-c"></span></a>
+<a href="/admin/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">System</div>
-<a href="/admin/audit"      class="nav-item"><span class="nav-icon">🔎</span><span>Audit Logs</span></a>
+<a href="/admin/audit"      class="nav-item"><span>Audit Logs</span></a>
 {% endblock %}
 {% block content %}
 <div class="stats-grid" id="stats-grid">
@@ -22,16 +22,16 @@
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:22px">
   <div class="card">
-    <div class="card-hd"><div class="card-title">⏳ Pending Verifications</div><a href="/admin/students" class="btn btn-sm btn-outline">View All</a></div>
+    <div class="card-hd"><div class="card-title">Pending Verifications</div><a href="/admin/students" class="btn btn-sm btn-outline">View All</a></div>
     <div id="ps-list" style="min-height:80px"></div>
   </div>
   <div class="card">
-    <div class="card-hd"><div class="card-title">🏅 Pending Candidates</div><a href="/admin/candidates" class="btn btn-sm btn-outline">View All</a></div>
+    <div class="card-hd"><div class="card-title">Pending Candidates</div><a href="/admin/candidates" class="btn btn-sm btn-outline">View All</a></div>
     <div id="pc-list" style="min-height:80px"></div>
   </div>
 </div>
 <div class="card">
-  <div class="card-hd"><div class="card-title">🗳️ All Elections</div><a href="/admin/elections" class="btn btn-sm btn-primary">+ New Election</a></div>
+  <div class="card-hd"><div class="card-title">All Elections</div><a href="/admin/elections" class="btn btn-sm btn-primary">+ New Election</a></div>
   <div id="el-list"></div>
 </div>
 {% endblock %}
@@ -47,10 +47,10 @@ async function loadDash() {
       iVote.$.admin.elections.all()
     ]);
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-card navy"><div class="stat-icon">👥</div><div class="stat-value">${stats.total_students}</div><div class="stat-label">Total Students</div></div>
-      <div class="stat-card red"><div class="stat-icon">⏳</div><div class="stat-value">${stats.pending_verifications}</div><div class="stat-label">Pending Verification</div></div>
-      <div class="stat-card gold"><div class="stat-icon">🗳️</div><div class="stat-value">${stats.active_elections}</div><div class="stat-label">Active Elections</div></div>
-      <div class="stat-card green"><div class="stat-icon">🗳️</div><div class="stat-value">${stats.total_votes_cast}</div><div class="stat-label">Votes Cast</div></div>`;
+      <div class="stat-card navy"><div class="stat-value">${stats.total_students}</div><div class="stat-label">Total Students</div></div>
+      <div class="stat-card red"><div class="stat-value">${stats.pending_verifications}</div><div class="stat-label">Pending Verification</div></div>
+      <div class="stat-card gold"><div class="stat-value">${stats.active_elections}</div><div class="stat-label">Active Elections</div></div>
+      <div class="stat-card green"><div class="stat-value">${stats.total_votes_cast}</div><div class="stat-label">Votes Cast</div></div>`;
     const nbs = document.getElementById('nb-s'); if(nbs) nbs.textContent = stats.pending_verifications||'';
     const nbc = document.getElementById('nb-c'); if(nbc) nbc.textContent = stats.pending_candidates||'';
     // Pending students
@@ -61,7 +61,7 @@ async function loadDash() {
         <div style="font-size:12px;color:var(--g400)">${esc(s.faculty)} · Year ${s.year} · ${esc(s.tu_registration_number)}</div></div>
         <button class="btn btn-sm btn-success" onclick="verifyS(${s.id},this)">✓ Verify</button>
       </div>`).join('')+(students.length>5?`<div style="padding:8px 20px;font-size:12px;color:var(--g400);text-align:center">${students.length-5} more · <a href="/admin/students">view all</a></div>`:'')
-      : '<div class="empty" style="padding:24px"><div class="empty-icon" style="font-size:26px">✅</div><div class="empty-title" style="font-size:14px">No pending verifications</div></div>';
+      : '<div class="empty" style="padding:24px"><div class="empty-title" style="font-size:14px">No pending verifications</div></div>';
     // Pending candidates
     const ce = document.getElementById('pc-list');
     ce.innerHTML = cands.length ? cands.slice(0,5).map((c,i)=>`
@@ -73,7 +73,7 @@ async function loadDash() {
         </div>
         <a href="/admin/candidates" class="btn btn-sm btn-outline">Review →</a>
       </div>`).join('')+(cands.length>5?`<div style="padding:8px 20px;font-size:12px;color:var(--g400);text-align:center">${cands.length-5} more · <a href="/admin/candidates">view all</a></div>`:'')
-      : '<div class="empty" style="padding:24px"><div class="empty-icon" style="font-size:26px">✅</div><div class="empty-title" style="font-size:14px">No pending candidates</div></div>';
+      : '<div class="empty" style="padding:24px"><div class="empty-title" style="font-size:14px">No pending candidates</div></div>';
     // Elections table
     const ee = document.getElementById('el-list');
     ee.innerHTML = elections.length ? `<div class="table-wrap"><table>
@@ -82,10 +82,10 @@ async function loadDash() {
         <td><strong>${esc(el.name)}</strong><br><span style="font-size:12px;color:var(--g400)">${el.positions.length} position(s)</span></td>
         <td style="font-size:13px">${iVote.fmtDateShort(el.voting_start)} → ${iVote.fmtDateShort(el.voting_end)}</td>
         <td>${iVote.statusBadge(el.status)}</td>
-        <td>${el.he_key_fingerprint?`<span class="he-badge">🔐 …${esc(el.he_key_fingerprint.slice(-16))}</span>`:'<span style="font-size:12px;color:var(--g400)">—</span>'}</td>
+        <td>${el.he_key_fingerprint?`<span class="he-badge"> …${esc(el.he_key_fingerprint.slice(-16))}</span>`:'<span style="font-size:12px;color:var(--g400)">—</span>'}</td>
         <td><a href="/admin/elections" class="btn btn-sm btn-outline">Manage</a></td>
       </tr>`).join('')}</tbody></table></div>`
-      : '<div class="empty"><div class="empty-icon">🗳️</div><div class="empty-title">No elections yet</div><div class="empty-text">Create your first election on the Elections page</div></div>';
+      : '<div class="empty"><div class="empty-title">No elections yet</div><div class="empty-text">Create your first election on the Elections page</div></div>';
   } catch(err) { iVote.showAlert('Error: '+err.message,'danger'); }
 }
 async function verifyS(id, btn) {
