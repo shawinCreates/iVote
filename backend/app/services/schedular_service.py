@@ -1,4 +1,5 @@
 from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,8 @@ from app.db.database import SessionLocal
 from app.db.models import Election, ElectionStatus, User, UserRole
 from app.services.audit_notification_service import _audit, _notify
 from app.services.he_tally_service import _run_he_tally
+
+_tally_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="he_tally")
 
 def open_nominations(db: Session, election: Election) -> None:
     election.status = ElectionStatus.NOMINATION_OPEN
@@ -41,18 +44,30 @@ def open_voting(db: Session, election: Election) -> None:
         print(f"[WARN] Notification send failed during open_voting: {notify_err}")
     db.commit()
 
+def _run_tally_in_thread(election_id: int) -> None:
+    db = SessionLocal()
+    try:
+        election = db.query(Election).filter(Election.id == election_id).first()
+        if election:
+            _run_he_tally(db, election)
+    except Exception as err:
+        try:
+            _audit(db, "HE_TALLY_ERROR", None, election_id=election_id,
+                   details=f"Tally failed: {err}")
+            db.commit()
+        except Exception:
+            pass
+        print(f"[HE_TALLY] Error for election {election_id}: {err}")
+    finally:
+        db.close()
+
 def close_voting_and_tally(db: Session, election: Election) -> None:
     election.status = ElectionStatus.CLOSED
     _audit(db, "ELECTION_STATUS_CHANGED", None, election_id=election.id,
            details="[SYSTEM] VOTING_OPEN → CLOSED; running HE tally")
     db.commit()
 
-    try:
-        _run_he_tally(db, election)
-    except Exception as tally_err:
-        _audit(db, "HE_TALLY_ERROR", None, election_id=election.id,
-               details=f"Tally failed: {tally_err}")
-        db.commit()
+    _tally_executor.submit(_run_tally_in_thread, election.id)
 
 def _tick() -> None:
     db = SessionLocal()
@@ -81,8 +96,7 @@ def _tick() -> None:
                 elif e.status == ElectionStatus.VOTING_OPEN and e.voting_end <= now:
                     close_voting_and_tally(db, e)
                     db.refresh(e)
-                    changed = True   # no further transition possible after CLOSED
-
+                   
     except Exception as err:
         db.rollback()
         print(f"[Scheduler] Error: {err}")

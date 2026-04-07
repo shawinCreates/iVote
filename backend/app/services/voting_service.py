@@ -3,12 +3,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-<<<<<<< HEAD
-from app.core import crypto as he
-from app.core.crypto import pub_from_json
-=======
 from app.core.crypto import ballot_from_json, pub_from_json
->>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 from app.db.models import ApprovalStatus, Candidate, ElectionStatus, EncryptedVote, VoterParticipation
 from app.schemas.schemas import HEBallotIn, VoteConfirmation
 from app.services.audit_notification_service import _audit

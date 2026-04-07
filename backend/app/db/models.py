@@ -79,6 +79,7 @@ class Election(Base):
     he_key_fingerprint   = Column(String(64), nullable=True)  
     he_tally_completed   = Column(Boolean, nullable=False, default=False)
 
+    creator         = relationship("User", foreign_keys=[created_by])
     positions       = relationship("Position",          back_populates="election", cascade="all, delete-orphan")
     participations  = relationship("VoterParticipation",back_populates="election", cascade="all, delete-orphan")
     encrypted_votes = relationship("EncryptedVote",     back_populates="election", cascade="all, delete-orphan")

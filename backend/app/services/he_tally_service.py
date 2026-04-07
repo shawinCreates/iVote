@@ -5,9 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.crypto import ballot_from_json, ballot_to_json, decrypt_tally, homomorphic_sum, priv_from_json, pub_from_json, verify_tally
 from app.db.models import ApprovalStatus, Candidate, Election, EncryptedVote, HETally
 from app.services.audit_notification_service import _audit
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+from app.utils.helpers import _now
 
 def _run_he_tally(db: Session, election: Election) -> None:
     """
@@ -61,6 +59,8 @@ def _run_he_tally(db: Session, election: Election) -> None:
         if not verified:
             all_verified = False
 
+        counts_dict = {str(cand_order[i]): counts[i] for i in range(len(counts))}
+
         now = _now()
         tally_row = (db.query(HETally)
                      .filter(HETally.election_id == election.id,
@@ -69,7 +69,7 @@ def _run_he_tally(db: Session, election: Election) -> None:
         if tally_row:
             tally_row.candidate_order_json = json.dumps(cand_order)
             tally_row.encrypted_tally_json = ballot_to_json(enc_tally)
-            tally_row.decrypted_tally_json = json.dumps(counts)
+            tally_row.decrypted_tally_json = json.dumps(counts_dict)
             tally_row.computed_at  = now
             tally_row.decrypted_at = now
         else:
@@ -78,7 +78,7 @@ def _run_he_tally(db: Session, election: Election) -> None:
                 position_id=position.id,
                 candidate_order_json=json.dumps(cand_order),
                 encrypted_tally_json=ballot_to_json(enc_tally),
-                decrypted_tally_json=json.dumps(counts),
+                decrypted_tally_json=json.dumps(counts_dict),
                 computed_at=now,
                 decrypted_at=now,
             ))
