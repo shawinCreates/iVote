@@ -3,42 +3,28 @@ import re
 import shutil
 import time
 from collections import defaultdict
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-<<<<<<< HEAD
-from app.services.auth_services import authenticate, create_student, create_token, get_current_user, get_user_by_email, get_user_by_tu, mark_notifications_read
-from app.db.database import get_db
-from app.db.models import User
-from app.schemas import schemas
-=======
 from app.services.auth_services import create_student, get_user_by_email, get_user_by_tu
-from app.services.audit_notification_service import mark_notifications_read
+from app.services.audit_notification_service import get_notifications, mark_notifications_read
 from app.utils.dependencies import get_current_user
 from app.utils.helpers import authenticate, create_token
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import NotificationOut, TokenOut, UserOut
+from app.core.config import _EXT_MAP, _MAX_PHOTO_BYTES, ID_CARD_DIR
 
->>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-_BASE_DIR    = Path(__file__).resolve().parents[4]
-_ID_CARD_DIR = _BASE_DIR / "uploads" / "id_cards"
-_ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
-
 _login_attempts: dict[str, list[float]] = defaultdict(list)
-_MAX_ATTEMPTS = 10        # max failures per window
+_MAX_ATTEMPTS = 5       # max failures per window
 _WINDOW_SEC   = 300       # 5-minute window
 
-_MAX_ID_CARD_BYTES = 5 * 1024 * 1024   # 5 MB
-
 _PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
-
 _SAFE_TU_RE = re.compile(r'^[A-Za-z0-9.\-_]+$')
 
 
@@ -91,8 +77,8 @@ async def register(
     id_card:                UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    if year < 1 or year > 10:
-        raise HTTPException(400, detail="Year must be between 1 and 10")
+    if year < 1 or year > 5:
+        raise HTTPException(400, detail="Year must be between 1 and 5")
 
     if not _PASSWORD_RE.match(password):
         raise HTTPException(
@@ -110,7 +96,7 @@ async def register(
         raise HTTPException(400, detail="ID card must be JPG, PNG, or PDF")
 
     content = await id_card.read()
-    if len(content) > _MAX_ID_CARD_BYTES:
+    if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="ID card file must be smaller than 5 MB")
     import io
     id_card.file = io.BytesIO(content)
@@ -118,14 +104,8 @@ async def register(
     if not _SAFE_TU_RE.match(tu_registration_number):
         raise HTTPException(400, detail="TU registration number contains invalid characters")
 
-    ext_map = {
-        "image/jpeg": ".jpg",
-        "image/jpg":  ".jpg",
-        "image/png":  ".png",
-        "application/pdf": ".pdf",
-    }
-    ext  = ext_map[id_card.content_type]
-    dest = _ID_CARD_DIR / f"id_{tu_registration_number}{ext}"
+    ext  = _EXT_MAP[id_card.content_type]
+    dest = ID_CARD_DIR / f"id_{tu_registration_number}{ext}"
     with dest.open("wb") as f:
         shutil.copyfileobj(id_card.file, f)
 
@@ -142,12 +122,11 @@ async def me(user: User = Depends(get_current_user)):
 
 
 @router.get("/notifications", response_model=list[NotificationOut])
-async def get_notifications(
+async def fetch_notifications(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.services.auth_services import get_notifications as fetch_notifications
-    return fetch_notifications(db, user.id)
+    return get_notifications(db, user.id)
 
 
 @router.post("/notifications/read")

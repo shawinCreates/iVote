@@ -6,10 +6,10 @@
     <div class="auth-brand">iVote</div>
     <p class="auth-tagline">Register to participate in your campus democratic process.</p>
     <div class="auth-features">
-      <div class="auth-feat"><div class="auth-feat-icon">📝</div>Submit your TU registration number</div>
-      <div class="auth-feat"><div class="auth-feat-icon">🪪</div>Upload your college ID card</div>
-      <div class="auth-feat"><div class="auth-feat-icon">⏳</div>Wait for Election Head verification</div>
-      <div class="auth-feat"><div class="auth-feat-icon">🗳️</div>Vote or run for a position!</div>
+      <div class="auth-feat">Submit your TU registration number</div>
+      <div class="auth-feat">Upload your college ID card</div>
+      <div class="auth-feat">Wait for Election Head verification</div>
+      <div class="auth-feat">Vote or run for a position!</div>
     </div>
   </div>
   <div class="auth-right" style="align-items:flex-start">
@@ -71,7 +71,6 @@
         <label class="form-label">College ID Card <span class="req">*</span></label>
         <label class="file-zone" for="id_card">
           <input type="file" id="id_card" accept="image/jpeg,image/png,application/pdf">
-          <div class="file-zone-icon" id="fz-icon">📄</div>
           <div class="file-zone-text" id="fz-text">Click to upload JPG, PNG or PDF (max 5 MB)</div>
           <img id="id-preview" style="display:none;max-width:160px;margin:12px auto 0;border-radius:8px;border:2px solid var(--g200)">
         </label>
@@ -85,7 +84,6 @@
 document.getElementById('id_card').addEventListener('change', function() {
   const f = this.files[0];
   if (!f) return;
-  document.getElementById('fz-icon').textContent = '✅';
   document.getElementById('fz-text').textContent = f.name;
   if (f.type.startsWith('image/')) {
     const img = document.getElementById('id-preview');
@@ -119,7 +117,7 @@ async function doRegister() {
     const res = await fetch('/api/auth/register', { method:'POST', body:fd });
     iVote.hideSpinner();
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail||'Registration failed'); }
-    iVote.showAlert('✅ Registration successful! Your account is pending verification by the Election Head. You will be notified once approved.', 'success', document.getElementById('alert-box'));
+    iVote.showAlert('Registration successful! Your account is pending verification by the Election Head. You will be notified once approved.', 'success', document.getElementById('alert-box'));
     setTimeout(() => window.location.href = '/', 3500);
   } catch(e) {
     iVote.hideSpinner();

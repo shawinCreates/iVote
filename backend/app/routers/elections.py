@@ -6,17 +6,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-<<<<<<< HEAD
-from app.db.models import Election, ElectionStatus, User
-=======
 from app.db.models import ElectionStatus, User
->>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 from app.schemas.schemas import ElectionIn, ElectionOut, ElectionResults
-from app.services.auth_services import require_admin, require_verified
 from app.services.election_service import (
     create_election,
     export_audit_csv,
-    get_admin_stats,
     get_audit_logs,
     get_election,
     get_election_audit_logs,
@@ -26,6 +20,8 @@ from app.services.election_service import (
     update_election_status,
 )
 from app.services.result_service import get_election_results
+from app.utils.dependencies import require_admin, require_verified
+from app.services.audit_notification_service import get_admin_stats
 
 router = APIRouter(tags=["Elections"])
 
@@ -96,31 +92,6 @@ async def get_he_public_key(
         "public_key_json": election.he_public_key_json,
         "fingerprint":    election.he_key_fingerprint,
     }
-
-
-@router.get(
-    "/api/elections/{election_id}/results",
-    response_model=ElectionResults,
-    summary="View published results for an election",
-)
-async def get_results(
-    election_id: int,
-    db: Session  = Depends(get_db),
-    user: User   = Depends(require_verified),
-):
-    election = get_election(db, election_id)
-    if not election:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Election not found")
-    if election.status != ElectionStatus.RESULTS_PUBLISHED:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail="Results have not been published yet",
-        )
-    try:
-        return get_election_results(db, election_id)
-    except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
-
 
 # ===========================================================================
 # Admin-facing endpoints

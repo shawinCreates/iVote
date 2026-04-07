@@ -4,12 +4,12 @@
 {% block page_title %}Election Results{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Participation</div>
-<a href="/student/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
-<a href="/student/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span></a>
-<a href="/student/vote"       class="nav-item"><span class="nav-icon">🗳️</span><span>Vote</span></a>
-<a href="/student/results"    class="nav-item active"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/student/dashboard"  class="nav-item"><span>Dashboard</span></a>
+<a href="/student/candidates" class="nav-item"><span>Candidates</span></a>
+<a href="/student/vote"       class="nav-item"><span>Vote</span></a>
+<a href="/student/results"    class="nav-item active"><span>Results</span></a>
 <div class="nav-label">My Account</div>
-<a href="/student/candidacy"  class="nav-item"><span class="nav-icon">📋</span><span>My Candidacy</span></a>
+<a href="/student/candidacy"  class="nav-item"><span>My Candidacy</span></a>
 {% endblock %}
 {% block content %}
 <div class="card" style="margin-bottom:22px">
@@ -23,7 +23,7 @@
   </div>
 </div>
 <div id="results-area">
-  <div class="empty"><div class="empty-icon">📊</div><div class="empty-title">Select an election to view results</div><div class="empty-text">Results are only shown after the Election Head publishes them.</div></div>
+  <div class="empty"><div class="empty-title">Select an election to view results</div><div class="empty-text">Results are only shown after the Election Head publishes them.</div></div>
 </div>
 <script>
 async function init() {
@@ -41,7 +41,7 @@ async function init() {
 async function loadResults() {
   const id=document.getElementById('el-sel').value;
   const area=document.getElementById('results-area');
-  if (!id) { area.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">Select an election above</div></div>'; return; }
+  if (!id) { area.innerHTML='<div class="empty"><div class="empty-title">Select an election above</div></div>'; return; }
   try {
     iVote.showSpinner();
     const r=await iVote.$.elections.results(id);
@@ -49,7 +49,7 @@ async function loadResults() {
     renderResults(r);
   } catch(e) {
     iVote.hideSpinner();
-    area.innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div class="empty-title">Results Not Available</div><div class="empty-text">Error loading content</div></div>`;
+    area.innerHTML=`<div class="empty"><div class="empty-title">Results Not Available</div><div class="empty-text">Error loading content</div></div>`;
   }
 }
 
@@ -79,12 +79,12 @@ function renderResults(r) {
   if (winners.length) {
     html+=`<div class="card" style="margin-bottom:22px;border:2px solid var(--gold)">
       <div class="card-hd" style="background:linear-gradient(135deg,var(--navy),var(--navy-mid))">
-        <div class="card-title" style="color:var(--gold)">👑 Elected Representatives</div>
+        <div class="card-title" style="color:var(--gold)"> Elected Representatives</div>
       </div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px">
           ${winners.map(w=>`<div class="winner-card">
-            <div style="font-size:30px;margin-bottom:8px">👑</div>
+            <div style="font-size:30px;margin-bottom:8px"></div>
             <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700">${e(w.candidate_name)}</div>
             <div style="font-size:12px;color:var(--crimson);font-weight:600;margin-top:3px">${e(w._pos)}</div>
             <div style="font-size:12px;color:var(--g400);margin-top:4px">${w.vote_count} votes (${w.percentage}%)</div>
@@ -100,7 +100,7 @@ function renderResults(r) {
         <div class="card-title">${e(pos.position_name)}</div>
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:13px;color:var(--g400)">${pos.total_votes} vote${pos.total_votes!==1?'s':''}</span>
-          ${pos.verified?'<span class="he-badge">🔐 Verified</span>':''}
+          ${pos.verified?'<span class="he-badge"> Verified</span>':''}
         </div>
       </div>
       <div class="card-body">
@@ -108,7 +108,7 @@ function renderResults(r) {
           <div>${pos.candidates.map((c,i)=>`
             <div style="margin-bottom:18px">
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:7px">
-                ${c.is_winner?'<span style="font-size:18px">👑</span>':`<span style="color:var(--g400);font-size:13px;width:20px;text-align:center">#${i+1}</span>`}
+                ${c.is_winner?'<span style="font-size:18px"></span>':`<span style="color:var(--g400);font-size:13px;width:20px;text-align:center">#${i+1}</span>`}
                 ${c.photo_path?`<img src="/${e(c.photo_path)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--g200)" onerror="this.style.display='none'">`:
                 `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy-mid));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">${e(c.candidate_name[0])}</div>`}
                 <div style="flex:1;font-weight:600;color:var(--navy)">${e(c.candidate_name)}${c.party_affiliation?` <span style="font-weight:400;color:var(--g400);font-size:12px">· ${e(c.party_affiliation)}</span>`:''}</div>

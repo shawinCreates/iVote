@@ -4,12 +4,12 @@
 {% block page_title %}Explore Candidates{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Participation</div>
-<a href="/student/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
-<a href="/student/candidates" class="nav-item active"><span class="nav-icon">🏅</span><span>Candidates</span></a>
-<a href="/student/vote"       class="nav-item"><span class="nav-icon">🗳️</span><span>Vote</span></a>
-<a href="/student/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/student/dashboard"  class="nav-item"><span>Dashboard</span></a>
+<a href="/student/candidates" class="nav-item active"><span>Candidates</span></a>
+<a href="/student/vote"       class="nav-item"><span>Vote</span></a>
+<a href="/student/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">My Account</div>
-<a href="/student/candidacy"  class="nav-item"><span class="nav-icon">📋</span><span>My Candidacy</span></a>
+<a href="/student/candidacy"  class="nav-item"><span>My Candidacy</span></a>
 {% endblock %}
 {% block content %}
 <div class="card" style="margin-bottom:22px">
@@ -26,7 +26,9 @@
   </div>
 </div>
 <div id="cands-container">
-  <div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">Loading candidates…</div></div>
+  <div class="empty">
+    <div class="empty-title">Loading candidates…</div>
+  </div>
 </div>
 
 <!-- Candidate Detail Modal -->
@@ -51,7 +53,7 @@ async function init() {
     const visible = allElections.filter(e=>['nomination_open','voting_open','closed','results_published'].includes(e.status));
     if (!visible.length) {
       sel.innerHTML = '<option value="">No elections available</option>';
-      document.getElementById('cands-container').innerHTML = '<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">No elections available yet</div><div class="empty-text">Candidates will appear once an election begins nominations.</div></div>';
+      document.getElementById('cands-container').innerHTML = '<div class="empty"><div class="empty-title">No elections available yet</div><div class="empty-text">Candidates will appear once an election begins nominations.</div></div>';
       return;
     }
     sel.innerHTML = '<option value="">— Select an election —</option>' +
@@ -59,13 +61,13 @@ async function init() {
     const pref = visible.find(e=>e.status==='voting_open') || visible[0];
     sel.value = pref.id;
     await onElectionChange();
-  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading content</div></div>`; }
+  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-title">Error loading content</div></div>`; }
 }
 
 async function onElectionChange() {
   const eid = document.getElementById('el-select').value;
-  if (!eid) { document.getElementById('cands-container').innerHTML='<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">Select an election above</div></div>'; return; }
-  document.getElementById('cands-container').innerHTML='<div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">Loading candidates…</div></div>';
+  if (!eid) { document.getElementById('cands-container').innerHTML='<div class="empty"><div class="empty-title">Select an election above</div></div>'; return; }
+  document.getElementById('cands-container').innerHTML='<div class="empty">div class="empty-title">Loading candidates…</div></div>';
   try {
     electionData = allElections.find(e=>e.id==eid);
     allCands = [];
@@ -75,7 +77,7 @@ async function onElectionChange() {
       allCands.push(...cands);
     }
     filterCands();
-  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading content</div></div>`; }
+  } catch(e) { document.getElementById('cands-container').innerHTML=`<div class="empty"><div class="empty-title">Error loading content</div></div>`; }
 }
 
 function filterCands() {
@@ -92,7 +94,7 @@ function filterCands() {
 function renderCands(data) {
   const e = iVote.esc;
   const cont = document.getElementById('cands-container');
-  if (!data.length) { cont.innerHTML='<div class="empty"><div class="empty-icon">🏅</div><div class="empty-title">No approved candidates yet</div><div class="empty-text">Candidates will appear once the Election Head approves their applications.</div></div>'; return; }
+  if (!data.length) { cont.innerHTML='<div class="empty"><div class="empty-title">No approved candidates yet</div><div class="empty-text">Candidates will appear once the Election Head approves their applications.</div></div>'; return; }
   const byPos={};
   data.forEach(c=>{ const k=c._posName||('Position '+c.position_id); if(!byPos[k]) byPos[k]={max:c._posMax,items:[]}; byPos[k].items.push(c); });
   let html='';

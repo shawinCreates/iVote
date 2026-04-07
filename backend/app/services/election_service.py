@@ -4,38 +4,21 @@ import csv
 import io
 from datetime import datetime, timezone
 from typing import List, Optional
-
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models import (
     AuditLog,
-    Candidate,
-    ApprovalStatus,
     Election,
     ElectionStatus,
     Position,
     User,
     UserRole,
-    VoterParticipation,
 )
 from app.schemas.schemas import (
-<<<<<<< HEAD
-    ElectionIn,
-    ElectionOut,
-    ElectionResults,
-    CandidateResult,
-    PositionResult,
-=======
     ElectionIn
->>>>>>> 3faff590b97884904aebe3f59a9e36eff71af618
 )
-from app.services.audit_notification_service import _audit, _notify
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
+from app.services.audit_notification_service import _audit, _notify, get_audit_logs
+from app.utils.helpers import _now
 
 # ---------------------------------------------------------------------------
 # Valid status transitions — enforced on every manual status change
@@ -47,7 +30,6 @@ _VALID_TRANSITIONS: dict[ElectionStatus, list[ElectionStatus]] = {
     ElectionStatus.CLOSED:             [ElectionStatus.RESULTS_PUBLISHED],
     ElectionStatus.RESULTS_PUBLISHED:  [],
 }
-
 
 # ---------------------------------------------------------------------------
 # Queries
@@ -89,7 +71,7 @@ def create_election(db: Session, data: ElectionIn, admin_id: int) -> Election:
         created_by=admin_id,
     )
     db.add(election)
-    db.flush()  # get election.id before adding positions
+    db.flush()
 
     for pos in data.positions:
         db.add(Position(
@@ -186,44 +168,8 @@ def lock_candidates(db: Session, election_id: int, admin_id: int) -> Election:
 
 
 # ---------------------------------------------------------------------------
-# Admin stats & audit
+#  Audit log export (used by elections router)
 # ---------------------------------------------------------------------------
-
-def get_admin_stats(db: Session) -> dict:
-    return {
-        "total_students":        db.query(User).filter(
-                                     User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
-                                     User.is_active == True,
-                                 ).count(),
-        "pending_verifications": db.query(User).filter(
-                                     User.is_verified == False,
-                                     User.is_active == True,
-                                     User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
-                                 ).count(),
-        "verified_students":     db.query(User).filter(
-                                     User.is_verified == True,
-                                     User.is_active == True,
-                                 ).count(),
-        "total_elections":       db.query(Election).count(),
-        "active_elections":      db.query(Election).filter(
-                                     Election.status == ElectionStatus.VOTING_OPEN,
-                                 ).count(),
-        "pending_candidates":    db.query(Candidate).filter(
-                                     Candidate.approval_status == ApprovalStatus.PENDING,
-                                 ).count(),
-        "total_votes_cast":      db.query(VoterParticipation).count(),
-    }
-
-
-def get_audit_logs(db: Session, skip: int = 0, limit: int = 100) -> List[AuditLog]:
-    return (
-        db.query(AuditLog)
-        .order_by(AuditLog.timestamp.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-
 
 def get_election_audit_logs(db: Session, election_id: int) -> List[AuditLog]:
     return (

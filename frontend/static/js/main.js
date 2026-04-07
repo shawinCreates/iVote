@@ -1,11 +1,3 @@
-/* ============================================================
-   iVote 3.0 — Main JavaScript
-   Fix #8/#19: Added esc() HTML-escape helper used everywhere
-   user-supplied data is injected into the DOM.
-   JWT is still in localStorage; this is a known trade-off —
-   server-side HttpOnly cookies would be the ideal next step.
-   ============================================================ */
-
 const API = '/api';
 
 /* ── Storage helpers ─────────────────────────────────────────── */
@@ -17,7 +9,6 @@ const store = {
   clear:    ()     => { localStorage.removeItem('ivote_token'); localStorage.removeItem('ivote_user'); },
 };
 
-/* ── Fix #8: XSS-safe HTML escape — MUST be used on all user data ── */
 function esc(str) {
   if (str == null) return '';
   return String(str)
@@ -114,7 +105,6 @@ function showAlert(msg, type = 'info', container = null) {
   const icons = { success:'✓', danger:'✕', warning:'⚠', info:'ℹ' };
   const el = document.createElement('div');
   el.className = `alert alert-${type}`;
-  // Fix #8: use textContent for msg to prevent XSS via error message
   el.innerHTML = `<span>${icons[type]||'ℹ'}</span>`;
   const msgSpan = document.createElement('span');
   msgSpan.textContent = msg;

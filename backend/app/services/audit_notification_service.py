@@ -32,8 +32,6 @@ def mark_notifications_read(db: Session, user_id: int) -> None:
      .update({"is_read": True}))
     db.commit()
 
-
-#  Internal helpers
 def _audit(db: Session, action: str, user_id: Optional[int],
            election_id: Optional[int] = None, details: str = None,
            ip: str = None) -> None:

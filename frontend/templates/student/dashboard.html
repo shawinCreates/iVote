@@ -4,16 +4,16 @@
 {% block page_title %}My Dashboard{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Participation</div>
-<a href="/student/dashboard"  class="nav-item active"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
-<a href="/student/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span></a>
-<a href="/student/vote"       class="nav-item"><span class="nav-icon">🗳️</span><span>Vote</span></a>
-<a href="/student/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/student/dashboard"  class="nav-item active"><span>Dashboard</span></a>
+<a href="/student/candidates" class="nav-item"><span>Candidates</span></a>
+<a href="/student/vote"       class="nav-item"><span>Vote</span></a>
+<a href="/student/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">My Account</div>
-<a href="/student/candidacy"  class="nav-item"><span class="nav-icon">📋</span><span>My Candidacy</span></a>
+<a href="/student/candidacy"  class="nav-item"><span>My Candidacy</span></a>
 {% endblock %}
 {% block content %}
 <div id="unverified-banner" style="display:none" class="alert alert-warning">
-  ⚠️ Your account is <strong>pending verification</strong> by the Election Head. You will be notified by email once approved.
+  Your account is <strong>pending verification</strong> by the Election Head. You will be notified by email once approved.
 </div>
 <div id="dash-content">
   <div><div class="skeleton" style="height:150px;border-radius:18px;margin-bottom:22px"></div>
@@ -45,7 +45,7 @@ async function loadDash() {
       html+=`<div class="e-hero"><div class="e-hero-bg"></div>
         <div class="e-hero-inner">
           <div>
-            <div class="e-hero-label">${dv?'✅ Vote Recorded':'<span class="pulse"></span> Voting is OPEN'}</div>
+            <div class="e-hero-label">${dv?'Vote Recorded':'<span class="pulse"></span> Voting is OPEN'}</div>
             <div class="e-hero-name">${esc(votingE.name)}</div>
             <div class="e-hero-sub">${votingE.positions.length} position(s) · Closes ${iVote.fmtDate(votingE.voting_end)}</div>
             ${dv?`<div style="margin-top:12px;background:rgba(255,255,255,.1);border-radius:8px;padding:8px 14px;display:inline-flex;align-items:center;gap:10px;font-size:13px"><span style="color:rgba(255,255,255,.5)">Confirmation:</span><code style="font-family:monospace;color:var(--gold);letter-spacing:1px">${esc(voted.confirmation_code)}</code></div>`:''}
@@ -54,8 +54,8 @@ async function loadDash() {
             <div class="e-hero-timer">${iVote.timeRemaining(votingE.voting_end)}</div>
             <div class="e-hero-timer-lbl">Remaining</div>
             <div style="margin-top:12px">
-              ${dv?'<span style="background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:7px 18px;font-size:13px;font-weight:600">✅ Vote Cast</span>'
-                :user&&user.is_verified?`<a href="/student/vote" class="btn btn-gold btn-lg">🗳️ Cast Your Vote →</a>`
+              ${dv?'<span style="background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:7px 18px;font-size:13px;font-weight:600">Vote Cast</span>'
+                :user&&user.is_verified?`<a href="/student/vote" class="btn btn-gold btn-lg"> Cast Your Vote →</a>`
                 :'<span style="font-size:13px;color:rgba(255,255,255,.4)">Verify account to vote</span>'}
             </div>
           </div>
@@ -64,34 +64,34 @@ async function loadDash() {
     } else if (nomE) {
       html+=`<div class="e-hero"><div class="e-hero-bg" style="background:linear-gradient(135deg,#0d1a2a,#1a3a5c)"></div>
         <div class="e-hero-inner"><div>
-          <div class="e-hero-label">📋 Nominations Open</div>
+          <div class="e-hero-label"> Nominations Open</div>
           <div class="e-hero-name">${esc(nomE.name)}</div>
           <div class="e-hero-sub">Apply now to contest in this election</div>
         </div>
-        <a href="/student/candidacy" class="btn btn-gold btn-lg">📋 Apply for Candidacy →</a>
+        <a href="/student/candidacy" class="btn btn-gold btn-lg">Apply for Candidacy →</a>
         </div></div>`;
     } else if (published.length) {
       html+=`<div class="e-hero"><div class="e-hero-bg" style="background:linear-gradient(135deg,#2a1e00,#5c4200)"></div>
         <div class="e-hero-inner"><div>
-          <div class="e-hero-label">📊 Results Available</div>
+          <div class="e-hero-label">Results Available</div>
           <div class="e-hero-name">${esc(published[0].name)}</div>
           <div class="e-hero-sub">Election results have been published</div>
         </div>
-        <a href="/student/results" class="btn btn-gold btn-lg">📊 View Results →</a>
+        <a href="/student/results" class="btn btn-gold btn-lg">View Results →</a>
         </div></div>`;
     }
     // Stats
     html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px">
-      <div class="stat-card navy"><div class="stat-icon">🗳️</div><div class="stat-value">${elections.length}</div><div class="stat-label">Elections</div></div>
-      <div class="stat-card red"><div class="stat-icon">🏅</div><div class="stat-value">${mine.length}</div><div class="stat-label">My Applications</div></div>
-      <div class="stat-card gold"><div class="stat-icon">📊</div><div class="stat-value">${published.length}</div><div class="stat-label">Published Results</div></div>
+      <div class="stat-card navy"><div class="stat-value">${elections.length}</div><div class="stat-label">Elections</div></div>
+      <div class="stat-card red"><div class="stat-value">${mine.length}</div><div class="stat-label">My Applications</div></div>
+      <div class="stat-card gold"><div class="stat-value">${published.length}</div><div class="stat-label">Published Results</div></div>
     </div>`;
     // Quick actions
     html+=`<div class="action-grid">
-      <a href="/student/candidates" class="action-tile"><div class="action-tile-icon">🏅</div><div class="action-tile-lbl">Browse Candidates</div><div class="action-tile-sub">Explore profiles &amp; manifestos</div></a>
-      <a href="/student/vote" class="action-tile${!votingE||(voted&&voted.has_voted)?' dim':''}"><div class="action-tile-icon">🗳️</div><div class="action-tile-lbl">Cast My Vote</div><div class="action-tile-sub">${votingE?(voted&&voted.has_voted?'Already voted ✅':'Voting is open!'):'No active voting'}</div></a>
-      <a href="/student/results" class="action-tile${!published.length?' dim':''}"><div class="action-tile-icon">📊</div><div class="action-tile-lbl">View Results</div><div class="action-tile-sub">${published.length?`${published.length} result(s) available`:'Not yet published'}</div></a>
-      <a href="/student/candidacy" class="action-tile${!nomE?' dim':''}"><div class="action-tile-icon">📋</div><div class="action-tile-lbl">Run for Office</div><div class="action-tile-sub">${nomE?'Nominations open now!':'No nominations open'}</div></a>
+      <a href="/student/candidates" class="action-tile"><div class="action-tile-lbl">Browse Candidates</div><div class="action-tile-sub">Explore profiles &amp; manifestos</div></a>
+      <a href="/student/vote" class="action-tile${!votingE||(voted&&voted.has_voted)?' dim':''}"><div class="action-tile-lbl">Cast My Vote</div><div class="action-tile-sub">${votingE?(voted&&voted.has_voted?'Already voted':'Voting is open!'):'No active voting'}</div></a>
+      <a href="/student/results" class="action-tile${!published.length?' dim':''}"><div class="action-tile-lbl">View Results</div><div class="action-tile-sub">${published.length?`${published.length} result(s) available`:'Not yet published'}</div></a>
+      <a href="/student/candidacy" class="action-tile${!nomE?' dim':''}"><div class="action-tile-lbl">Run for Office</div><div class="action-tile-sub">${nomE?'Nominations open now!':'No nominations open'}</div></a>
     </div>`;
     // Elections list
     if (elections.length) {

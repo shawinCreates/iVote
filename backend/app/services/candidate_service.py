@@ -5,9 +5,7 @@ from datetime import datetime, timezone
 from app.db.models import( Candidate, Position, ApprovalStatus, ElectionStatus, UserRole)
 from app.services.audit_notification_service import _audit, _notify
 from app.services.election_service import get_election
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+from app.utils.helpers import _now
 
 def get_pending_candidates(db: Session,
                            election_id: Optional[int] = None) -> List[Candidate]:

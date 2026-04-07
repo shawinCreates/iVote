@@ -4,25 +4,25 @@
 {% block page_title %}Student Management{% endblock %}
 {% block sidebar_nav %}
 <div class="nav-label">Overview</div>
-<a href="/admin/dashboard"  class="nav-item"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+<a href="/admin/dashboard"  class="nav-item"><span>Dashboard</span></a>
 <div class="nav-label">Management</div>
 <a href="/admin/students"   class="nav-item active"><span class="nav-icon">👥</span><span>Students</span></a>
-<a href="/admin/elections"  class="nav-item"><span class="nav-icon">🗳️</span><span>Elections</span></a>
-<a href="/admin/candidates" class="nav-item"><span class="nav-icon">🏅</span><span>Candidates</span></a>
-<a href="/admin/results"    class="nav-item"><span class="nav-icon">📊</span><span>Results</span></a>
+<a href="/admin/elections"  class="nav-item"><span>Elections</span></a>
+<a href="/admin/candidates" class="nav-item"><span>Candidates</span></a>
+<a href="/admin/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">System</div>
-<a href="/admin/audit"      class="nav-item"><span class="nav-icon">🔎</span><span>Audit Logs</span></a>
+<a href="/admin/audit"      class="nav-item"><span>Audit Logs</span></a>
 {% endblock %}
 {% block content %}
 <div class="tabs">
-  <button class="tab-btn active" data-tab="tab-pending">⏳ Pending <span id="pc" style="background:var(--crimson);color:white;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:6px">0</span></button>
-  <button class="tab-btn" data-tab="tab-verified">✅ Verified Students</button>
+  <button class="tab-btn active" data-tab="tab-pending">Pending <span id="pc" style="background:var(--crimson);color:white;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:6px">0</span></button>
+  <button class="tab-btn" data-tab="tab-verified">Verified Students</button>
 </div>
 <div class="tab-pane active" id="tab-pending">
   <div class="card">
     <div class="card-hd">
       <div class="card-title">Pending Verifications</div>
-      <input class="form-control" style="max-width:220px" placeholder="🔍 Search…" oninput="filterPending(this.value)">
+      <input class="form-control" style="max-width:220px" placeholder="Search…" oninput="filterPending(this.value)">
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Student</th><th>TU Reg. No.</th><th>Faculty</th><th>Year</th><th>Registered</th><th>ID Card</th><th>Actions</th></tr></thead>
@@ -35,7 +35,7 @@
     <div class="card-hd">
       <div class="card-title">Verified Students</div>
       <div style="display:flex;gap:10px">
-        <input class="form-control" style="max-width:200px" placeholder="🔍 Search…" oninput="filterVerified(this.value)">
+        <input class="form-control" style="max-width:200px" placeholder="Search…" oninput="filterVerified(this.value)">
         <select class="form-control" style="max-width:200px" id="fac-filter" onchange="filterVerified()">
           <option value="">All Faculties</option>
           <option>Science &amp; Technology</option>
@@ -76,7 +76,6 @@
     <div class="modal-body" style="text-align:center">
       <img id="idcard-img" src="" style="max-width:100%;border-radius:10px;display:none">
       <div id="idcard-pdf" style="display:none;padding:20px">
-        <div style="font-size:48px;margin-bottom:10px">📄</div>
         <div style="color:var(--g600)">PDF document</div>
         <a id="idcard-pdf-link" href="#" target="_blank" class="btn btn-outline" style="margin-top:14px">Open PDF ↗</a>
       </div>
@@ -99,7 +98,7 @@ async function loadStudents() {
 function renderPending(data) {
   const e = iVote.esc;
   const tb = document.getElementById('tb-pending');
-  if (!data.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No pending verifications</div></div></td></tr>'; return; }
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-title">No pending verifications</div></div></td></tr>'; return; }
   tb.innerHTML = data.map(s=>`<tr>
     <td><div style="font-weight:600">${e(s.full_name)}</div><div style="font-size:12px;color:var(--g400)">${e(s.email)}</div></td>
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
@@ -107,8 +106,8 @@ function renderPending(data) {
     <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
     <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id},${JSON.stringify(e(s.full_name))})">👁 View</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
     <td><div style="display:flex;gap:6px">
-      <button class="btn btn-sm btn-success" onclick="verifyS(${s.id},this)">✓ Verify</button>
-      <button class="btn btn-sm btn-danger"  onclick="openReject(${s.id})">✕ Reject</button>
+      <button class="btn btn-sm btn-success" onclick="verifyS(${s.id},this)">Verify</button>
+      <button class="btn btn-sm btn-danger"  onclick="openReject(${s.id})"> Reject</button>
     </div></td>
   </tr>`).join('');
 }
@@ -120,7 +119,7 @@ function renderVerified(data) {
     <td><div style="font-weight:600">${e(s.full_name)}</div><div style="font-size:12px;color:var(--g400)">${e(s.email)}</div></td>
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
     <td>${e(s.faculty)}</td><td>Year ${e(s.year)}</td>
-    <td><span class="badge badge-${e(s.role)}">${s.role==='candidate'?'🏅 Candidate':'🎓 Student'}</span></td>
+    <td><span class="badge badge-${e(s.role)}">${s.role==='candidate'?' Candidate':' Student'}</span></td>
     <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
   </tr>`).join('');
 }
@@ -134,7 +133,7 @@ async function verifyS(id,btn) {
   if (!confirm('Verify this student?')) return;
   btn.disabled=true; btn.textContent='…';
   try { await iVote.$.admin.students.verify(id); iVote.showAlert('Student verified!','success'); loadStudents(); }
-  catch(e) { btn.disabled=false; btn.textContent='✓ Verify'; iVote.showAlert(e.message,'danger'); }
+  catch(e) { btn.disabled=false; btn.textContent=' Verify'; iVote.showAlert(e.message,'danger'); }
 }
 function openReject(id) { document.getElementById('reject-uid').value=id; document.getElementById('reject-reason').value=''; iVote.openModal('reject-modal'); }
 async function confirmReject() {
