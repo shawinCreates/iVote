@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 import enum
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum as SAEnum, ForeignKey,
@@ -9,11 +10,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from .database import Base
 
+NPT = ZoneInfo("Asia/Kathmandu")
 
 def _utcnow():
-    """Timezone-aware UTC now — replaces deprecated datetime.utcnow()."""
-    return datetime.now(timezone.utc)
-
+    return datetime.now(NPT)
 
 # Enumerations 
 class UserRole(str, enum.Enum):
@@ -201,7 +201,6 @@ class Notification(Base):
 
     id                = Column(Integer, primary_key=True, index=True)
     user_id           = Column(Integer, ForeignKey("users.id"), nullable=False)
-    # Fix #16: election_id scopes notifications to a specific election
     election_id       = Column(Integer, ForeignKey("elections.id"), nullable=True)
     title             = Column(String(255), nullable=False)
     message           = Column(Text, nullable=False)

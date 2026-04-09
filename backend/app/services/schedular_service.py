@@ -1,6 +1,8 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 from sqlalchemy.orm import Session
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -69,10 +71,12 @@ def close_voting_and_tally(db: Session, election: Election) -> None:
 
     _tally_executor.submit(_run_tally_in_thread, election.id)
 
+APP_TIMEZONE = ZoneInfo("Asia/Kathmandu")
+
 def _tick() -> None:
     db = SessionLocal()
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(APP_TIMEZONE)
         elections = (db.query(Election)
                      .filter(Election.status.in_([
                          ElectionStatus.DRAFT,
