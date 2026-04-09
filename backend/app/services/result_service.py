@@ -36,11 +36,11 @@ def get_election_results(db: Session, election_id: int) -> ElectionResults:
             all_verified = False
             continue
 
-        counts   = [int(c) for c in json.loads(tally.decrypted_tally_json)]
-        cand_ids = [int(cid) for cid in json.loads(tally.candidate_order_json)]
-        total_pos = sum(counts)
+        counts   = json.loads(tally.decrypted_tally_json)
+        cand_ids = json.loads(tally.candidate_order_json)
+        total_pos = sum(counts.values())
 
-        ranked = sorted(zip(cand_ids, counts), key=lambda x: x[1], reverse=True)
+        ranked = sorted(zip(cand_ids, counts.values()), key=lambda x: x[1], reverse=True)
 
         candidate_results = []
         for rank, (cid, count) in enumerate(ranked):

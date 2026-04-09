@@ -11,7 +11,6 @@ from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
 from app.core.config import BASE_DIR
 
-
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -53,8 +52,8 @@ async def startup():
 
 # Page routes
 def page(tpl: str):
-    async def _handler(request: Request):
-        return templates.TemplateResponse(tpl, {"request": request})
+    async def _handler(request: Request, tpl_name=tpl):
+        return templates.TemplateResponse(request, tpl_name, {"request": request})
     return _handler
 
 app.add_route("/",                    page("login.html"),                   methods=["GET"])
