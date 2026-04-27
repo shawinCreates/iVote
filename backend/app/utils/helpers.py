@@ -2,19 +2,16 @@ from jose import jwt
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from app.core.config import ACCESS_TOKEN_EXPIRE_DELTA, ALGORITHM, SECRET_KEY
 from app.core.security import verify_password
 from app.db.models import User
 
-NPT = ZoneInfo("Asia/Kathmandu")
-
 def _now() -> datetime:
-    return datetime.now(NPT)
+    return datetime.now(timezone.utc)
 
 def create_token(user_id: int, role: str) -> str:
-    expire = datetime.now(NPT) + ACCESS_TOKEN_EXPIRE_DELTA
+    expire = datetime.now(timezone.utc) + ACCESS_TOKEN_EXPIRE_DELTA
     return jwt.encode(
         {"sub": str(user_id), "role": role, "exp": expire},
         SECRET_KEY,

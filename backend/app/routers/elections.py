@@ -25,6 +25,16 @@ from app.services.audit_notification_service import get_admin_stats
 
 router = APIRouter(tags=["Elections"])
 
+# ===========================================================================
+# Internal schema for status update body
+# (defined here so it doesn't pollute the shared schemas file)
+# ===========================================================================
+
+from pydantic import BaseModel  # noqa: E402  (kept local on purpose)
+
+
+class _StatusBody(BaseModel):
+    status: ElectionStatus
 
 # ===========================================================================
 # Student-facing endpoints
@@ -215,15 +225,3 @@ async def admin_export_audit_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=audit_logs.csv"},
     )
-
-
-# ===========================================================================
-# Internal schema for status update body
-# (defined here so it doesn't pollute the shared schemas file)
-# ===========================================================================
-
-from pydantic import BaseModel  # noqa: E402  (kept local on purpose)
-
-
-class _StatusBody(BaseModel):
-    status: ElectionStatus

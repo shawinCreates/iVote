@@ -23,7 +23,7 @@
       </select>
       <input class="form-control" style="max-width:220px" placeholder=" Search candidates…" oninput="filterRender(this.value)">
       <div style="display:flex;border:1px solid var(--g200);border-radius:8px;overflow:hidden">
-        <button class="vtab active" data-v="pending"  onclick="switchV('pending',this)" style="padding:7px 14px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--crimson);background:rgba(192,57,43,.06);cursor:pointer">⏳ Pending</button>
+        <button class="vtab active" data-v="pending"  onclick="switchV('pending',this)" style="padding:7px 14px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--crimson);background:rgba(192,57,43,.06);cursor:pointer">Pending</button>
         <button class="vtab"        data-v="all"      onclick="switchV('all',this)"     style="padding:7px 14px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--g400);cursor:pointer">All</button>
         <button class="vtab"        data-v="approved" onclick="switchV('approved',this)"style="padding:7px 14px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--g400);cursor:pointer">Approved</button>
         <button class="vtab"        data-v="rejected" onclick="switchV('rejected',this)"style="padding:7px 14px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--g400);cursor:pointer">Rejected</button>
@@ -101,7 +101,9 @@ function renderCands(data) {
         </div>
       </td>
       <td style="font-size:13px;font-weight:600">${c.position?e(c.position.name):'—'}</td>
-      <td style="font-size:13px">${c.party_affiliation?e(c.party_affiliation):'<span style="color:var(--g400)">—</span>'}</td>
+      <td style="font-size:13px">${c.program?e(c.program):'<span style="color:var(--g400)">—</span>'}</td>
+      <td style="font-size:13px">${c.faculty?e(c.faculty):'<span style="color:var(--g400)">—</span>'}</td>
+      <td style="font-size:13px">${c.year?e(c.year):'<span style="color:var(--g400)">—</span>'}</td>
       <td style="font-size:13px;white-space:nowrap">${iVote.fmtDateShort(c.applied_at)}</td>
       <td>${iVote.approvalBadge(c.approval_status)}</td>
       <td style="text-align:right">

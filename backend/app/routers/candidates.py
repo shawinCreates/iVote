@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile
+from fastapi import APIRouter, Depends, Request, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.db.database import get_db
 from app.db.models import Candidate, User, UserRole
-from app.schemas.schemas import CandidateOut, RejectReasonIn, RejectReasonIn
+from app.schemas.schemas import CandidateOut, RejectReasonIn
 from app.services.candidate_service import apply_candidacy, approve_candidate, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views, reject_candidate
 from app.utils.dependencies import require_admin, require_verified
 from app.core.config import _ALLOWED_PHOTO_TYPES, _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR
@@ -13,8 +13,7 @@ student_router = APIRouter(prefix ="/api", tags=["Candidates"])
 admin_router = APIRouter(prefix ="/api/admin", tags=["Candidates - Admin"])
 
 # Student-facing
-@student_router.get("/positions/{position_id}/candidates",
-            response_model=List[CandidateOut])
+@student_router.get("/positions/{position_id}/candidates", response_model=List[CandidateOut])
 async def candidates_for_position(
     position_id: int,
     db: Session = Depends(get_db),
@@ -48,12 +47,14 @@ async def my_candidacy(
 
 @student_router.post("/candidates/apply", response_model=CandidateOut, status_code=201)
 async def apply(
-    position_id:       int        = Form(...),
-    manifesto:         str        = Form(...),
-    party_affiliation: str        = Form(None),
-    photo:             UploadFile = File(...),
-    db: Session = Depends(get_db),
-    user: User  = Depends(require_verified),
+    position_id:int = Form(...),
+    manifesto:str = Form(...),
+    facebook_url:str = Form(None),
+    instagram_url:str = Form(None),
+    contact_email:str = Form(None),
+    photo:UploadFile = File(...),
+    db:Session = Depends(get_db),
+    user:User  = Depends(require_verified),
 ):
     if user.role == UserRole.ELECTION_HEAD:
         raise HTTPException(403, detail="Admin cannot apply for candidacy")
@@ -79,13 +80,11 @@ async def apply(
     try:
         return apply_candidacy(
             db, user.id, position_id, manifesto,
-            party_affiliation, relative,
+            facebook_url, instagram_url, contact_email, relative,
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
-
-# Admin-facing
 @admin_router.get("/candidates/pending", response_model=List[CandidateOut])
 async def pending_candidates(
     election_id: Optional[int] = None,
@@ -102,10 +101,10 @@ async def all_candidates(
 ):
     return get_all_candidates(db, election_id)
 
-@admin_router.post("/candidates/{candidate_id}/approve",
-             response_model=CandidateOut)
+@admin_router.post("/candidates/{candidate_id}/approve", response_model=CandidateOut)
 async def approve_candidate_endpoint(
     candidate_id: int,
+    request = None,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -114,8 +113,7 @@ async def approve_candidate_endpoint(
     except ValueError as err:
         raise HTTPException(400, detail=str(err))
 
-@admin_router.post("/candidates/{candidate_id}/reject",
-             response_model=CandidateOut)
+@admin_router.post("/candidates/{candidate_id}/reject", response_model=CandidateOut)
 async def reject_candidate_endpoint(
     candidate_id: int,
     body: RejectReasonIn,
