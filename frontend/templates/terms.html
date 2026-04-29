@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Terms of Service — iVote{% endblock %}
+{% block content %}
+<div class="terms-wrap">
+  <div style="margin-bottom:32px">
+    <a href="/" style="font-size:13px;color:var(--t2)">← Back to Sign In</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px">
+    <span style="font-family:var(--mono);font-size:22px;color:var(--cyan);font-weight:600">iVOTE</span>
+  </div>
+  <h1>Terms of Service</h1>
+  <p style="color:var(--t3);margin-bottom:32px;font-size:13px">Last updated: 2025 · Tribhuvan University Campus Election System</p>
+
+  <h2>1. Acceptance of Terms</h2>
+  <p>By registering for and using iVote, you agree to be bound by these Terms of Service. If you do not agree, do not use this platform.</p>
+
+  <h2>2. Eligibility</h2>
+  <p>iVote is available exclusively to currently enrolled students of Tribhuvan University who have a valid TU registration number. Each student may hold only one account.</p>
+
+  <h2>3. Data We Collect</h2>
+  <ul>
+    <li>Your TU registration number, email address, and full name</li>
+    <li>Your college ID card image for identity verification</li>
+    <li>A profile photo captured via your device's front camera, used for face verification before voting</li>
+    <li>Academic details: faculty, program, year, and semester</li>
+    <li>An encrypted record of your participation in each election (not your vote choice)</li>
+    <li>IP address and session timestamps for audit and security purposes</li>
+  </ul>
+
+  <h2>4. How We Use Your Data</h2>
+  <ul>
+    <li>To verify your student identity and eligibility to vote or stand for election</li>
+    <li>To authenticate you before casting a vote using face comparison</li>
+    <li>To maintain a tamper-proof audit trail of all election activities</li>
+    <li>We do not sell, share, or disclose your data to any third party</li>
+  </ul>
+
+  <h2>5. Ballot Secrecy</h2>
+  <p>Your vote is encrypted in your browser using Paillier homomorphic encryption before transmission. iVote's servers never see your individual vote choice. Votes are tallied homomorphically without decrypting individual ballots. Your vote is mathematically secret.</p>
+
+  <h2>6. Your Responsibilities</h2>
+  <ul>
+    <li>Provide accurate and truthful information during registration</li>
+    <li>Keep your login credentials confidential</li>
+    <li>Vote only once per election — duplicate voting is technically prevented</li>
+    <li>Not attempt to tamper with, reverse-engineer, or attack the election system</li>
+    <li>Not impersonate another student during face verification</li>
+  </ul>
+
+  <h2>7. Prohibited Activities</h2>
+  <ul>
+    <li>Creating multiple accounts</li>
+    <li>Sharing your account credentials</li>
+    <li>Attempting to circumvent face verification</li>
+    <li>Voter intimidation or coercion of any kind</li>
+    <li>Any activity that could compromise election integrity</li>
+  </ul>
+
+  <h2>8. Consequences of Violations</h2>
+  <p>Violation of these terms may result in immediate account suspension, disqualification from the election, and referral to university disciplinary authorities.</p>
+
+  <h2>9. Data Retention</h2>
+  <p>Your profile data is retained for the duration of your enrollment. Encrypted vote records are retained permanently for audit purposes. You may request deletion of your personal data by contacting the Election Head, subject to legal and audit obligations.</p>
+
+  <h2>10. Contact</h2>
+  <p>For any questions about these terms or your data, contact the Election Head at your campus.</p>
+
+  <div style="margin-top:48px;padding:20px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg)">
+    <div style="font-size:13px;color:var(--t3)">
+      iVote is an open-source project developed for campus democratic participation.
+      The cryptographic implementation uses the Paillier (1999) homomorphic encryption scheme
+      implemented from scratch in Python without external cryptographic libraries.
+    </div>
+  </div>
+</div>
+{% endblock %}

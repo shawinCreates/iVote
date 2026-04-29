@@ -29,11 +29,8 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-app.mount(
-    "/static",
-    StaticFiles(directory=str(BASE_DIR / "frontend" / "static")),
-    name="static",
-)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "frontend" / "static")), name="static")
+app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 
@@ -57,6 +54,9 @@ def page(tpl: str):
 
 app.add_route("/",                    page("login.html"),                   methods=["GET"])
 app.add_route("/register",            page("register.html"),                methods=["GET"])
+app.add_route("/forgot-password",     page("forgot_password.html"),    methods=["GET"])
+app.add_route("/reset-password",      page("reset_password.html"),     methods=["GET"])
+app.add_route("/terms",               page("terms.html"),              methods=["GET"])
 
 # Student
 app.add_route("/student/dashboard",   page("student/dashboard.html"),       methods=["GET"])

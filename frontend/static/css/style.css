@@ -1,8 +1,3 @@
-/* ============================================================
-   iVote 3.0 — Campus Election System
-   Design: Deep Navy · Crimson · Gold
-   Fonts: Playfair Display + DM Sans
-   ============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 /* ── Variables ──────────────────────────────────────────────── */
@@ -29,6 +24,16 @@
   --shadow-md: 0 4px 24px rgba(13, 27, 42, .13);
   --shadow-lg: 0 8px 40px rgba(13, 27, 42, .18);
   --t: 0.22s cubic-bezier(.4, 0, .2, 1);
+  --border: #e5e7eb;
+  --border2: #d1d5db;
+  --t2: #6b7280;
+  --t3: #9ca3af;
+  --cyan: #06b6d4;
+  --green: #22c55e;
+  --glow-cyan: 0 0 0 3px rgba(6, 182, 212, 0.25);
+  --r: 10px;
+  --t-fast: 0.15s ease;
+  --t-std: 0.25s ease;
 }
 
 /* ── Reset ──────────────────────────────────────────────────── */
@@ -1024,12 +1029,90 @@ tbody tr:last-child td {
   margin-bottom: 28px;
   font-size: 15px
 }
-
+.pw-wrap { position:relative }
+.pw-wrap .form-control { padding-right:44px }
+.pw-eye {
+  position:absolute; right:12px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:var(--t3);
+  font-size:16px; padding:4px; transition:color var(--t-fast);
+}
 .auth-footer {
   text-align: center;
   margin-top: 22px;
   font-size: 14px;
   color: var(--g600)
+}
+
+/* ── Registration Stepper ── */
+.stepper { display:flex; align-items:center; gap:0; margin-bottom:32px }
+.step {
+  display:flex; align-items:center; flex:1;
+}
+.step-circle {
+  width:32px; height:32px; border-radius:50%; border:2px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:var(--t3); flex-shrink:0;
+  transition:all var(--t-std);
+}
+.step.done .step-circle   { background:var(--gold); border-color:var(--crimson); color:#000 }
+.step.active .step-circle { background:var(--crimson);  border-color:var(--gold);  color:#000; box-shadow:var(--crimson-lt) }
+.step.done .step-line, .step.active .step-line { background:var(--gold) }
+.step-label { font-size:10px; color:var(--t3); text-align:center; margin-top:6px; text-transform:uppercase; letter-spacing:.5px }
+.step.active .step-label { color:var(--crimson) }
+.step.done  .step-label  { color:var(--gold) }
+.step-wrap { display:flex; flex-direction:column; align-items:center }
+.step-line {
+  flex: 1;
+  height: 3px;
+  background: var(--border2);
+  margin: 0 6px;
+  border-radius: 2px;
+  transition: background var(--t-std);
+}
+
+/* ── Stage panels ── */
+.stage-panel { display:none }
+.stage-panel.active { display:block }
+
+.camera-box {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+  border: 2px solid var(--border2);
+}
+
+.camera-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-overlay {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(255,255,255,0.3);
+  pointer-events: none;
+}
+
+.camera-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.camera-active {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.file-zone-hint {
+  font-size: 11px;
+  color: var(--g400);
+  margin-top: 4px;
 }
 
 /* ── Progress ───────────────────────────────────────────────── */

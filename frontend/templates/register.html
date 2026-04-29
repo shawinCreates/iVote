@@ -12,117 +12,602 @@
       <div class="auth-feat">Vote or run for a position!</div>
     </div>
   </div>
-  <div class="auth-right" style="align-items:flex-start">
-    <div class="auth-card" style="max-width:480px">
-      <h1>Student Registration</h1>
-      <p class="sub">Create your account to participate</p>
+  <div class="auth-right" style="align-items:flex-start;padding-top:40px">
+    <div class="auth-card" style="max-width:520px">
+      <h1>Create account</h1>
+      <p class="sub">Complete all 4 steps to register</p>
+
+      <!-- ── Stepper ── -->
+      <div class="stepper" id="stepper">
+        <div class="step-wrap">
+          <div class="step-circle active" id="sc-1">1</div>
+          <div class="step-label">Account</div>
+        </div>
+        <div class="step-line" id="sl-1"></div>
+        <div class="step-wrap">
+          <div class="step-circle" id="sc-2">2</div>
+          <div class="step-label">Details</div>
+        </div>
+        <div class="step-line" id="sl-2"></div>
+        <div class="step-wrap">
+          <div class="step-circle" id="sc-3">3</div>
+          <div class="step-label">ID Card</div>
+        </div>
+        <div class="step-line" id="sl-3"></div>
+        <div class="step-wrap">
+          <div class="step-circle" id="sc-4">4</div>
+          <div class="step-label">Photo</div>
+        </div>
+      </div>
+
+      <!-- Global alert box (shared across all stages) -->
       <div id="alert-box"></div>
-      <div class="form-group">
-        <label class="form-label">Full Name <span class="req">*</span></label>
-        <input type="text" class="form-control" id="full_name" placeholder="Ram Prasad Sharma">
-      </div>
-      <div class="grid-2">
+
+      <!-- STAGE 1 — Credentials -->
+      <div class="stage-panel active" id="stage-1">
         <div class="form-group">
-          <label class="form-label">Email <span class="req">*</span></label>
-          <input type="email" class="form-control" id="email" placeholder="you@example.com">
+          <label class="form-label">TU Registration Number <span class="req">*</span></label>
+          <input type="text" class="form-control mono" id="tu_reg"
+                 placeholder="e.g. 2-2-234-2021" autocomplete="off">
+          <div class="form-hint">Format: digits-digits-digits-digits-digits (dashes required)</div>
         </div>
         <div class="form-group">
-          <label class="form-label">TU Reg. Number <span class="req">*</span></label>
-          <input type="text" class="form-control" id="tu_reg" placeholder="e.g. 2-2-0101-234-2021">
+          <label class="form-label">Email Address <span class="req">*</span></label>
+          <input type="email" class="form-control" id="s1-email"
+                 placeholder="you@student.edu.np" autocomplete="email">
         </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label class="form-label">Faculty <span class="req">*</span></label>
-          <select class="form-control" id="faculty">
-            <option value="">Select Faculty</option>
-            <option>Science &amp; Technology</option>
-            <option>Management</option>
-            <option>Humanities &amp; Social Sciences</option>
-            <option>Education</option>
-            <option>Law</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Year <span class="req">*</span></label>
-          <select class="form-control" id="year">
-            <option value="">Select Year</option>
-            <option value="1">1st Year</option>
-            <option value="2">2nd Year</option>
-            <option value="3">3rd Year</option>
-            <option value="4">4th Year</option>
-            <option value="5">5th Year</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Password <span class="req">*</span></label>
-          <input type="password" class="form-control" id="password" placeholder="Min. 8 characters">
-          <span class="form-error" id="pw-err"></span>
+          <div class="pw-wrap">
+            <input type="password" class="form-control" id="password"
+                   placeholder="Create a strong password" autocomplete="new-password">
+            <button type="button" class="pw-eye" onclick="togglePw('password',this)">👁</button>
+          </div>
+          <div class="form-hint">Min. 8 chars with uppercase, lowercase, digit &amp; symbol (e.g. P@ssw0rd!)</div>
+          <!-- Strength bar -->
+          <div style="margin-top:6px;height:5px;border-radius:3px;background:var(--border);overflow:hidden">
+            <div id="pw-strength-bar" style="height:100%;width:0%;border-radius:3px;transition:width .3s,background .3s"></div>
+          </div>
+          <div id="pw-strength-label" style="font-size:11px;color:var(--t3);margin-top:3px;height:14px"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Confirm Password <span class="req">*</span></label>
-          <input type="password" class="form-control" id="cpw" placeholder="Re-enter password">
-          <span class="form-error" id="cpw-err"></span>
+          <div class="pw-wrap">
+            <input type="password" class="form-control" id="cpw"
+                   placeholder="Re-enter password" autocomplete="new-password">
+            <button type="button" class="pw-eye" onclick="togglePw('cpw',this)">👁</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:20px">
+          <input type="checkbox" id="terms-check" style="margin-top:4px;accent-color:var(--cyan);flex-shrink:0">
+          <label for="terms-check" style="font-size:13px;color:var(--t2)">
+            I agree to the <a href="/terms" target="_blank">Terms of Service</a> and understand
+            that my data is used only for campus election purposes.
+          </label>
+        </div>
+        <button class="btn btn-primary btn-block" id="s1-btn" onclick="stage1()">
+          Continue →
+        </button>
+        <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--t2)">
+          Already registered? <a href="/">Sign in</a>
+        </div>
+        <div style="text-align:center;margin-top:8px;font-size:13px">
+          <a href="#" onclick="openResume();return false" style="color:var(--cyan)">
+            Interrupted? Resume your registration →
+          </a>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">College ID Card <span class="req">*</span></label>
-        <label class="file-zone" for="id_card">
-          <input type="file" id="id_card" accept="image/jpeg,image/png,application/pdf">
-          <div class="file-zone-text" id="fz-text">Click to upload JPG, PNG or PDF (max 5 MB)</div>
-          <img id="id-preview" style="display:none;max-width:160px;margin:12px auto 0;border-radius:8px;border:2px solid var(--g200)">
-        </label>
+
+      <!-- STAGE 2 — Academic Details -->
+      <div class="stage-panel" id="stage-2">
+        <div class="form-group">
+          <label class="form-label">Full Name <span class="req">*</span></label>
+          <input type="text" class="form-control" id="full_name"
+                placeholder="Ram Prasad Sharma" autocomplete="name">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Faculty <span class="req">*</span></label>
+            <select class="form-control" id="faculty" onchange="updatePrograms()">
+              <option value="">Select Faculty</option>
+              <option>Science & Technology</option>
+              <option>Management</option>
+              <option>Humanities & Social Sciences</option>
+              <option>Education</option>
+              <option>Law</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Program <span class="req">*</span></label>
+            <select class="form-control" id="program" disabled>
+              <option value="">Select Program</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Year <span class="req">*</span></label>
+            <select class="form-control" id="year" onchange="updateSemesters()">
+              <option value="">Select Year</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
+              <option value="5">5th Year</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              Semester <span style="font-weight:400;color:var(--t3)">(optional)</span>
+            </label>
+            <select class="form-control" id="semester" disabled>
+              <option value="">Select Semester</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" onclick="goToStage(1)">← Back</button>
+          <button class="btn btn-primary btn-block" id="s2-btn" onclick="stage2()">
+            Continue →
+          </button>
+        </div>
       </div>
-      <button class="btn btn-primary btn-block btn-lg" id="reg-btn" onclick="doRegister()">Create Account</button>
-      <div class="auth-footer">Already have an account? <a href="/">Login here</a></div>
+
+      <!-- STAGE 3 — ID Card Upload -->
+      <div class="stage-panel" id="stage-3">
+        <p style="font-size:14px;color:var(--t2);margin-bottom:18px">
+          Upload your college-issued ID card. The Election Head will review it to verify your identity.
+        </p>
+        <div class="form-group">
+          <label class="file-zone" for="id_card" id="fz-label">
+            <input type="file" id="id_card" accept="image/jpeg,image/png,application/pdf"
+                   onchange="previewIdCard(this)">
+            <div class="file-zone-icon" id="fz-icon">🪪</div>
+            <div class="file-zone-text" id="fz-text">Click to upload ID card</div>
+            <div class="file-zone-hint">JPG, PNG or PDF — max 5 MB</div>
+            <img id="id-preview" style="display:none;max-width:200px;margin:12px auto 0;
+                 border-radius:var(--r);border:1px solid var(--border2)">
+          </label>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" onclick="goToStage(2)">← Back</button>
+          <button class="btn btn-primary btn-block" id="s3-btn" onclick="stage3()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STAGE 4 — Profile Photo Capture -->
+      <div class="stage-panel" id="stage-4">
+        <p style="font-size:14px;color:var(--t2);margin-bottom:14px">
+          Take a clear photo of your face with your front camera.
+          This is used for <strong>face verification before voting</strong> — look directly at the camera.
+        </p>
+        <div class="camera-box" id="cam-box">
+          <video id="cam-video" autoplay playsinline muted></video>
+          <canvas id="cam-canvas" style="display:none"></canvas>
+          <div class="camera-overlay"></div>
+          <div id="cam-placeholder" style="text-align:center;color:var(--t3);padding:30px">
+            <div style="font-size:48px;margin-bottom:10px">📷</div>
+            <div style="font-size:13px">Click "Start Camera" below</div>
+          </div>
+        </div>
+        <div class="camera-controls">
+          <button class="btn btn-outline" id="cam-start" onclick="startCamera()">📷 Start Camera</button>
+          <button class="btn btn-primary" id="cam-capture" onclick="capturePhoto()" style="display:none">⚡ Capture</button>
+          <button class="btn btn-ghost"   id="cam-retake"  onclick="retakePhoto()"  style="display:none">↺ Retake</button>
+        </div>
+        <div id="cam-preview-wrap" style="display:none;margin-top:14px;text-align:center">
+          <img id="cam-preview" style="max-width:180px;border-radius:50%;
+               border:3px solid var(--green);margin:0 auto;display:block">
+          <div style="color:var(--green);font-size:13px;margin-top:8px">✓ Photo captured</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="goToStage(3)">← Back</button>
+          <button class="btn btn-primary btn-block" id="s4-btn" onclick="stage4()" disabled>
+            ✓ Submit Registration
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Resume Registration Modal -->
+<div class="modal-overlay" id="resume-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-hd">
+      <div class="modal-title">Resume Registration</div>
+      <button class="modal-close" onclick="iVote.closeModal('resume-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--t2);margin-bottom:16px">
+        Enter the email and password you used when you started.
+        We'll take you straight to where you left off.
+      </p>
+      <div id="resume-alert"></div>
+      <div class="form-group">
+        <label class="form-label">Email <span class="req">*</span></label>
+        <input type="email" class="form-control" id="resume-email" placeholder="you@student.edu.np">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input type="password" class="form-control" id="resume-pw" placeholder="Your password">
+          <button type="button" class="pw-eye" onclick="togglePw('resume-pw',this)">👁</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="iVote.closeModal('resume-modal')">Cancel</button>
+      <button class="btn btn-primary" id="resume-btn" onclick="doResume()">Resume →</button>
     </div>
   </div>
 </div>
 <script>
-document.getElementById('id_card').addEventListener('change', function() {
-  const f = this.files[0];
-  if (!f) return;
-  document.getElementById('fz-text').textContent = f.name;
-  if (f.type.startsWith('image/')) {
-    const img = document.getElementById('id-preview');
-    img.src = URL.createObjectURL(f);
-    img.style.display = 'block';
+let _token = null;
+let _capturedPhoto = null;
+let _stream = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type  = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function goToStage(n) {
+  [1, 2, 3, 4].forEach(i => {
+    document.getElementById('stage-' + i).classList.toggle('active', i === n);
+    const sc = document.getElementById('sc-' + i);
+    if (i < n) {
+      sc.textContent = '✓';
+      sc.style.cssText = 'background:var(--green);border-color:var(--green);color:#000';
+    } else if (i === n) {
+      sc.textContent = i;
+      sc.style.cssText = 'background:var(--cyan);border-color:var(--cyan);color:#000;box-shadow:var(--glow-cyan)';
+    } else {
+      sc.textContent = i;
+      sc.style.cssText = '';
+    }
+  });
+  document.getElementById('alert-box').innerHTML = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function apiFetch(url, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (_token) headers['Authorization'] = 'Bearer ' + _token;
+  const res = await fetch(url, { ...opts, headers });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.detail || 'Request failed');
   }
+  return res.json();
+}
+
+// ── Password strength meter ───────────────────────────────────────────────────
+
+document.getElementById('password').addEventListener('input', function () {
+  const pw = this.value;
+  let score = 0;
+  if (pw.length >= 8)          score++;
+  if (/[A-Z]/.test(pw))        score++;
+  if (/[a-z]/.test(pw))        score++;
+  if (/\d/.test(pw))           score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const bar    = document.getElementById('pw-strength-bar');
+  const label  = document.getElementById('pw-strength-label');
+  const colors = ['', '#f43f5e', '#f59e0b', '#f59e0b', '#3b82f6', '#00e5a0'];
+  const labels = ['', 'Very weak', 'Weak', 'Fair', 'Good', 'Strong ✓'];
+  const widths = ['0%', '20%', '40%', '60%', '80%', '100%'];
+  bar.style.width      = widths[score];
+  bar.style.background = colors[score] || '';
+  label.textContent    = labels[score] || '';
+  label.style.color    = colors[score] || '';
 });
 
-async function doRegister() {
+// ── Resume ────────────────────────────────────────────────────────────────────
+
+function openResume() {
+  document.getElementById('resume-email').value = '';
+  document.getElementById('resume-pw').value    = '';
+  document.getElementById('resume-alert').innerHTML = '';
+  iVote.openModal('resume-modal');
+}
+
+async function doResume() {
+  const email = document.getElementById('resume-email').value.trim();
+  const pw    = document.getElementById('resume-pw').value;
+  const ab    = document.getElementById('resume-alert');
+  if (!email || !pw) {
+    iVote.showAlert('Please enter your email and password.', 'warning', ab); return;
+  }
+  const btn = document.getElementById('resume-btn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const fd = new FormData();
+    fd.append('email', email); fd.append('password', pw);
+    const res  = await fetch('/api/auth/register/resume', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail);
+
+    _token = data.token;
+    iVote.store.setToken(data.token);
+    iVote.closeModal('resume-modal');
+
+    if (data.faculty) {
+      document.getElementById('faculty').value = data.faculty;
+      updatePrograms();
+    }
+
+    if (data.program) {
+      document.getElementById('program').value = data.program;
+    }
+
+    if (data.year) {
+      document.getElementById('year').value = String(data.year);
+      updateSemesters();
+    }
+
+    if (data.semester) {
+      document.getElementById('semester').value = String(data.semester);
+    }
+
+    const stageMap = { stage1: 2, stage2: 3, stage3: 4 };
+    const nextStage = stageMap[data.stage] || 2;
+    goToStage(nextStage);
+    iVote.showAlert(
+      '✓ Welcome back! Continuing from step ' + nextStage + '.',
+      'success', document.getElementById('alert-box')
+    );
+  } catch (e) {
+    iVote.showAlert(e.message, 'danger', ab);
+    btn.disabled = false; btn.textContent = 'Resume →';
+  }
+}
+
+// ── Stage 1 ───────────────────────────────────────────────────────────────────
+
+async function stage1() {
+  const tu  = document.getElementById('tu_reg').value.trim();
+  const em  = document.getElementById('s1-email').value.trim();
   const pw  = document.getElementById('password').value;
   const cpw = document.getElementById('cpw').value;
-  document.getElementById('pw-err').textContent = '';
-  document.getElementById('cpw-err').textContent = '';
-  if (pw.length < 8)  { document.getElementById('pw-err').textContent  = 'Minimum 8 characters'; return; }
-  if (pw !== cpw)     { document.getElementById('cpw-err').textContent = 'Passwords do not match'; return; }
-  const file = document.getElementById('id_card').files[0];
-  if (!file) { iVote.showAlert('Please upload your college ID card', 'warning', document.getElementById('alert-box')); return; }
-  if (file.size > 5*1024*1024) { iVote.showAlert('File must be smaller than 5 MB', 'warning', document.getElementById('alert-box')); return; }
-  const fd = new FormData();
-  fd.append('email',                  document.getElementById('email').value.trim());
-  fd.append('full_name',              document.getElementById('full_name').value.trim());
-  fd.append('tu_registration_number', document.getElementById('tu_reg').value.trim());
-  fd.append('faculty',                document.getElementById('faculty').value);
-  fd.append('year',                   document.getElementById('year').value);
-  fd.append('password',               pw);
-  fd.append('id_card',                file);
-  const btn = document.getElementById('reg-btn');
+  const ab  = document.getElementById('alert-box');
+
+  if (!document.getElementById('terms-check').checked) {
+    iVote.showAlert('Please accept the Terms of Service to continue.', 'warning', ab); return;
+  }
+  if (!tu || !em || !pw) {
+    iVote.showAlert('All fields are required.', 'warning', ab); return;
+  }
+  if (pw !== cpw) {
+    iVote.showAlert('Passwords do not match.', 'danger', ab); return;
+  }
+  // Client-side strength check matches server regex
+  if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(pw)) {
+    iVote.showAlert(
+      'Password must be at least 8 characters with uppercase, lowercase, digit and symbol.',
+      'danger', ab
+    ); return;
+  }
+
+  const btn = document.getElementById('s1-btn');
   btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const fd = new FormData();
+    fd.append('tu_registration_number', tu);
+    fd.append('email', em);
+    fd.append('password', pw);
+    const data = await apiFetch('/api/auth/register/stage1', { method: 'POST', body: fd });
+    _token = data.token;
+    iVote.store.setToken(data.token);
+    goToStage(2);
+  } catch (e) {
+    iVote.showAlert(e.message, 'danger', ab);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Continue →';
+  }
+}
+
+// ── Stage 2 ───────────────────────────────────────────────────────────────────
+// ── Faculty → Program mapping ──
+const facultyPrograms = {
+  "Science & Technology": ["BSc CSIT", "BIT", "BSc Microbiology", "BSc Biochemistry"],
+  "Management": ["BBA", "BBS", "BBM", "BIM"],
+  "Humanities & Social Sciences": ["BA", "BSW", "BCA"],
+  "Education": ["BEd"],
+  "Law": ["BLLB"]
+};
+
+// ── Year → Semester mapping ──
+const yearSemesters = {
+  "1": ["Semester 1", "Semester 2"],
+  "2": ["Semester 3", "Semester 4"],
+  "3": ["Semester 5", "Semester 6"],
+  "4": ["Semester 7", "Semester 8"],
+  "5": ["Semester 9", "Semester 10"]
+};
+
+// ── Update Programs ──
+function updatePrograms() {
+  const faculty = document.getElementById('faculty').value;
+  const program = document.getElementById('program');
+
+  program.innerHTML = '<option value="">Select Program</option>';
+  program.disabled = true;
+
+  if (!facultyPrograms[faculty]) return;
+
+  facultyPrograms[faculty].forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    program.appendChild(opt);
+  });
+
+  program.disabled = false;
+}
+
+// ── Update Semesters ──
+function updateSemesters() {
+  const year = document.getElementById('year').value;
+  const semester = document.getElementById('semester');
+
+  semester.innerHTML = '<option value="">Select Semester</option>';
+  semester.disabled = true;
+
+  if (!yearSemesters[year]) return;
+
+  yearSemesters[year].forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = i + 1;
+    opt.textContent = s;
+    semester.appendChild(opt);
+  });
+
+  semester.disabled = false;
+}
+
+async function stage2() {
+  const fn  = document.getElementById('full_name').value.trim();
+  const fac = document.getElementById('faculty').value;
+  const prg = document.getElementById('program').value.trim();
+  const yr  = document.getElementById('year').value;
+  const sem = document.getElementById('semester').value;
+  const ab  = document.getElementById('alert-box');
+
+  if (!fn || !fac || !prg || !yr) {
+    iVote.showAlert('Please fill all required fields.', 'warning', ab); return;
+  }
+  const btn = document.getElementById('s2-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const fd = new FormData();
+    fd.append('full_name', fn); fd.append('faculty', fac);
+    fd.append('program', prg); fd.append('year', yr);
+    if (sem) fd.append('semester', sem);
+    await apiFetch('/api/auth/register/stage2', { method: 'POST', body: fd });
+    goToStage(3);
+  } catch (e) {
+    iVote.showAlert(e.message, 'danger', ab);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Continue →';
+  }
+}
+
+// ── Stage 3 ───────────────────────────────────────────────────────────────────
+
+function previewIdCard(inp) {
+  const f = inp.files[0]; if (!f) return;
+  document.getElementById('fz-text').textContent = f.name;
+  document.getElementById('fz-icon').textContent = '✓';
+  if (f.type.startsWith('image/')) {
+    const img = document.getElementById('id-preview');
+    img.src = URL.createObjectURL(f); img.style.display = 'block';
+  }
+}
+
+async function stage3() {
+  const file = document.getElementById('id_card').files[0];
+  const ab   = document.getElementById('alert-box');
+  if (!file) {
+    iVote.showAlert('Please upload your ID card.', 'warning', ab); return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    iVote.showAlert('File must be smaller than 5 MB.', 'warning', ab); return;
+  }
+  const btn = document.getElementById('s3-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const fd = new FormData(); fd.append('id_card', file);
+    await apiFetch('/api/auth/register/stage3', { method: 'POST', body: fd });
+    goToStage(4);
+  } catch (e) {
+    iVote.showAlert(e.message, 'danger', ab);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Continue →';
+  }
+}
+
+// ── Stage 4 — Camera ──────────────────────────────────────────────────────────
+
+async function startCamera() {
+  try {
+    _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+    const video = document.getElementById('cam-video');
+    video.srcObject = _stream;
+    document.getElementById('cam-placeholder').style.display = 'none';
+    document.getElementById('cam-box').classList.add('camera-active');
+    document.getElementById('cam-start').style.display   = 'none';
+    document.getElementById('cam-capture').style.display = 'flex';
+  } catch (e) {
+    iVote.showAlert('Cannot access camera: ' + e.message, 'danger', document.getElementById('alert-box'));
+  }
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('cam-video');
+  const canvas = document.getElementById('cam-canvas');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  _capturedPhoto = canvas.toDataURL('image/jpeg', 0.92);
+
+  if (_stream) _stream.getTracks().forEach(t => t.stop());
+
+  const prev = document.getElementById('cam-preview');
+  prev.src = _capturedPhoto;
+  document.getElementById('cam-preview-wrap').style.display = 'block';
+  document.getElementById('cam-capture').style.display = 'none';
+  document.getElementById('cam-retake').style.display  = 'flex';
+  document.getElementById('cam-video').style.display   = 'none';
+  document.getElementById('cam-box').classList.remove('camera-active');
+  document.getElementById('s4-btn').disabled = false;
+}
+
+function retakePhoto() {
+  _capturedPhoto = null;
+  document.getElementById('cam-preview-wrap').style.display = 'none';
+  document.getElementById('cam-retake').style.display  = 'none';
+  document.getElementById('cam-video').style.display   = 'block';
+  document.getElementById('s4-btn').disabled = true;
+  startCamera();
+}
+
+async function stage4() {
+  const ab = document.getElementById('alert-box');
+  if (!_capturedPhoto) {
+    iVote.showAlert('Please capture your photo first.', 'warning', ab); return;
+  }
+  const btn = document.getElementById('s4-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
   iVote.showSpinner();
   try {
-    const res = await fetch('/api/auth/register', { method:'POST', body:fd });
+    const fd = new FormData(); fd.append('photo_data', _capturedPhoto);
+    await apiFetch('/api/auth/register/stage4', { method: 'POST', body: fd });
     iVote.hideSpinner();
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail||'Registration failed'); }
-    iVote.showAlert('Registration successful! Your account is pending verification by the Election Head. You will be notified once approved.', 'success', document.getElementById('alert-box'));
-    setTimeout(() => window.location.href = '/', 3500);
-  } catch(e) {
+    // Replace card content with success message
+    document.querySelector('.auth-card').innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:64px;margin-bottom:20px">🎉</div>
+        <h2 style="margin-bottom:10px">Registration Complete!</h2>
+        <p style="font-size:14px;color:var(--t2);margin-bottom:24px">
+          Your application has been submitted. The Election Head will
+          review your ID card and verify your account shortly.
+          You will be able to log in once verified.
+        </p>
+        <a href="/" class="btn btn-primary btn-lg">Go to Sign In →</a>
+      </div>`;
+  } catch (e) {
     iVote.hideSpinner();
-    btn.disabled = false; btn.textContent = 'Create Account';
-    iVote.showAlert(e.message, 'danger', document.getElementById('alert-box'));
+    btn.disabled = false; btn.textContent = '✓ Submit Registration';
+    iVote.showAlert(e.message, 'danger', ab);
   }
 }
 </script>

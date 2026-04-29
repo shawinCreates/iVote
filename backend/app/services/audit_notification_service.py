@@ -32,10 +32,10 @@ def mark_notifications_read(db: Session, user_id: int) -> None:
      .update({"is_read": True}))
     db.commit()
 
-def _audit(db: Session, action: str, user_id: Optional[int],
+def _audit(db: Session, action: str, user_id: Optional[int], actor_role: Optional[str] = "system",
            election_id: Optional[int] = None, details: str = None,
            ip: str = None) -> None:
-    db.add(AuditLog(action=action, user_id=user_id, election_id=election_id,
+    db.add(AuditLog(action=action, user_id=user_id,actor_role  = actor_role or "system", election_id=election_id,
                     details=details, ip_address=ip))
 
 def _notify(db: Session, user_id: int, title: str, message: str,
