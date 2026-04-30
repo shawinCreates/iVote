@@ -25,8 +25,8 @@
       <input class="form-control" style="max-width:220px" placeholder="Search…" oninput="filterPending(this.value)">
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Student</th><th>TU Reg. No.</th><th>Faculty</th><th>Year</th><th>Registered</th><th>ID Card</th><th>Actions</th></tr></thead>
-      <tbody id="tb-pending"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--g400)">Loading…</td></tr></tbody>
+      <thead><tr><th>Student</th><th>TU Reg. No.</th><th>Faculty</th><th>Program</th><th>Year</th><th>Semester</th><th>Registered</th><th>ID Card</th><th>Actions</th></tr></thead>
+      <tbody id="tb-pending"><tr><td colspan="9" style="text-align:center;padding:40px;color:var(--g400)">Loading…</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -47,8 +47,8 @@
       </div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Student</th><th>TU Reg. No.</th><th>Faculty</th><th>Year</th><th>Role</th><th>Registered</th></tr></thead>
-      <tbody id="tb-verified"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--g400)">Loading…</td></tr></tbody>
+      <thead><tr><th>Student</th><th>TU Reg. No.</th><th>Faculty</th><th>Program</th><th>Year</th><th>Semester</th><th>ID Card</th><th>Registered</th></tr></thead>
+      <tbody id="tb-verified"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--g400)">Loading…</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -69,21 +69,63 @@
   </div>
 </div>
 
-<!-- ID Card Modal -->
-<div class="modal-overlay" id="idcard-modal">
-  <div class="modal" style="max-width:580px">
-    <div class="modal-hd"><div class="modal-title" id="idcard-title">College ID Card</div><button class="modal-close">✕</button></div>
+<!-- ID Card / Photo Preview Modal -->
+<div class="modal-overlay" id="img-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hd"><div class="modal-title" id="img-modal-title">Document Preview</div><button class="modal-close" onclick="iVote.closeModal('img-modal')">✕</button></div>
     <div class="modal-body" style="text-align:center">
-      <img id="idcard-img" src="" style="max-width:100%;border-radius:10px;display:none">
-      <div id="idcard-pdf" style="display:none;padding:20px">
-        <div style="color:var(--g600)">PDF document</div>
-        <a id="idcard-pdf-link" href="#" target="_blank" class="btn btn-outline" style="margin-top:14px">Open PDF ↗</a>
-      </div>
-      <div id="idcard-none" style="display:none;padding:20px;color:var(--g400)">No ID card uploaded.</div>
+      <img id="img-modal-src" style="max-width:100%;border-radius:var(--r);border:1px solid var(--border)">
     </div>
   </div>
 </div>
 
+<!-- Verify Modal (with student details and confirm button) -->
+<div class="modal-overlay" id="verify-modal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-hd">
+      <div class="modal-title">Verify Student</div>
+      <button class="modal-close" onclick="iVote.closeModal('verify-modal')">✕</button>
+    </div>
+
+    <div class="modal-body">
+      
+      <!-- Top: Profile -->
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+        <img id="verify-avatar"
+             style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border)">
+        <div>
+          <div id="verify-name" style="font-weight:600;font-size:15px"></div>
+          <div id="verify-email" style="font-size:12px;color:var(--g400)"></div>
+        </div>
+      </div>
+
+      <!-- Details -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;margin-bottom:16px">
+        <div><b>TU Reg:</b> <span id="verify-reg"></span></div>
+        <div><b>Faculty:</b> <span id="verify-fac"></span></div>
+        <div><b>Program:</b> <span id="verify-prog"></span></div>
+        <div><b>Year:</b> <span id="verify-year"></span></div>
+        <div><b>Semester:</b> <span id="verify-sem"></span></div>
+      </div>
+
+      <!-- ID Card Preview -->
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px">ID Card</div>
+        <div style="text-align:center">
+          <img id="verify-idcard"
+               style="max-width:100%;border-radius:var(--r);border:1px solid var(--border)">
+        </div>
+      </div>
+
+      <input type="hidden" id="verify-uid">
+    </div>
+
+    <div class="modal-ft">
+      <button class="btn btn-outline" onclick="iVote.closeModal('verify-modal')">Cancel</button>
+      <button class="btn btn-success" onclick="confirmVerify()">Confirm Verify</button>
+    </div>
+  </div>
+</div>
 <script>
 let pendingAll = [], verifiedAll = [];
 async function loadStudents() {
@@ -98,15 +140,25 @@ async function loadStudents() {
 function renderPending(data) {
   const e = iVote.esc;
   const tb = document.getElementById('tb-pending');
-  if (!data.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-title">No pending verifications</div></div></td></tr>'; return; }
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-title">No pending verifications</div></div></td></tr>'; return; }
   tb.innerHTML = data.map(s=>`<tr>
-    <td><div style="font-weight:600">${e(s.full_name)}</div><div style="font-size:12px;color:var(--g400)">${e(s.email)}</div></td>
+    <td>
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="/${s.profile_photo_path}"
+            style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"
+            onerror="this.onerror=null; this.src='/static/images/default_avatar.jpg'">
+        <div>
+          <div style="font-weight:600">${e(s.full_name)}</div>
+          <div style="font-size:12px;color:var(--g400)">${e(s.email)}</div>
+        </div>
+      </div>
+    </td>
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
-    <td>${e(s.faculty)}</td><td>Year ${e(s.year)}</td>
+    <td>${e(s.faculty)}</td><td>${e(s.program)}</td><td>Year ${e(s.year)}</td><td>Semester ${e(s.semester)}</td>
     <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
-    <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id},${JSON.stringify(e(s.full_name))})">👁 View</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
+    <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id})">View ID</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
     <td><div style="display:flex;gap:6px">
-      <button class="btn btn-sm btn-success" onclick="verifyS(${s.id},this)">Verify</button>
+      <button class="btn btn-sm btn-success" onclick="openVerify(${s.id})">Verify</button>
       <button class="btn btn-sm btn-danger"  onclick="openReject(${s.id})"> Reject</button>
     </div></td>
   </tr>`).join('');
@@ -114,12 +166,22 @@ function renderPending(data) {
 function renderVerified(data) {
   const e = iVote.esc;
   const tb = document.getElementById('tb-verified');
-  if (!data.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No verified students yet</div></div></td></tr>'; return; }
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-title">No verified students yet</div></div></td></tr>'; return; }
   tb.innerHTML = data.map(s=>`<tr>
-    <td><div style="font-weight:600">${e(s.full_name)}</div><div style="font-size:12px;color:var(--g400)">${e(s.email)}</div></td>
+    <td>
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="/${s.profile_photo_path}"
+            style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"
+            onerror="this.onerror=null; this.src='/static/images/default_avatar.jpg'">
+        <div>
+          <div style="font-weight:600">${e(s.full_name)}</div>
+          <div style="font-size:12px;color:var(--g400)">${e(s.email)}</div>
+        </div>
+      </div>
+    </td>
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
-    <td>${e(s.faculty)}</td><td>Year ${e(s.year)}</td>
-    <td><span class="badge badge-${e(s.role)}">${s.role==='candidate'?' Candidate':' Student'}</span></td>
+    <td>${e(s.faculty)}</td><td>${e(s.program)}</td><td>Year ${e(s.year)}</td><td>Semester ${e(s.semester)}</td>
+    <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id})">View ID</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
     <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
   </tr>`).join('');
 }
@@ -127,13 +189,62 @@ function filterPending(q) { renderPending(pendingAll.filter(s=>!q||s.full_name.t
 function filterVerified(q) {
   const sq = typeof q==='string'?q:document.querySelector('#tab-verified input').value;
   const fac = document.getElementById('fac-filter').value;
-  renderVerified(verifiedAll.filter(s=>(!fac||s.faculty===fac)&&(!sq||s.full_name.toLowerCase().includes(sq.toLowerCase())||s.email.toLowerCase().includes(sq.toLowerCase()))));
+  const prog = document.getElementById('prog-filter').value;
+  renderVerified(verifiedAll.filter(s=>(!fac||s.faculty===fac)&&(!prog||s.program===prog)&&(!sq||s.full_name.toLowerCase().includes(sq.toLowerCase())||s.email.toLowerCase().includes(sq.toLowerCase()))));
 }
-async function verifyS(id,btn) {
-  if (!confirm('Verify this student?')) return;
-  btn.disabled=true; btn.textContent='…';
-  try { await iVote.$.admin.students.verify(id); iVote.showAlert('Student verified!','success'); loadStudents(); }
-  catch(e) { btn.disabled=false; btn.textContent=' Verify'; iVote.showAlert(e.message,'danger'); }
+function openVerify(id) {
+  const s = [...pendingAll, ...verifiedAll].find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('verify-uid').value = s.id;
+  document.getElementById('verify-name').textContent = s.full_name;
+  document.getElementById('verify-email').textContent = s.email;
+
+  document.getElementById('verify-reg').textContent = s.tu_registration_number;
+  document.getElementById('verify-fac').textContent = s.faculty;
+  document.getElementById('verify-prog').textContent = s.program;
+  document.getElementById('verify-year').textContent = s.year;
+  document.getElementById('verify-sem').textContent = s.semester;
+
+  // Profile photo
+  const avatar = document.getElementById('verify-avatar');
+  avatar.src = `/${s.profile_photo_path}`;
+  avatar.onerror = () => {
+    avatar.onerror = null;
+    avatar.src = '/static/images/default_avatar.jpg';
+  };
+
+  // ID card preview (AUTH REQUIRED)
+  const idImg = document.getElementById('verify-idcard');
+
+  if (s.id_card_path) {
+    fetch(`/api/admin/students/${s.id}/id-card`, {
+      headers: { Authorization: 'Bearer ' + iVote.store.getToken() }
+    })
+    .then(r => r.blob())
+    .then(b => {
+      idImg.src = URL.createObjectURL(b);
+    })
+    .catch(() => {
+      idImg.src = '/static/images/no_image.png';
+    });
+  } else {
+    idImg.src = '/static/images/no_image.png';
+  }
+
+  iVote.openModal('verify-modal');
+}
+async function confirmVerify() {
+  const id = document.getElementById('verify-uid').value;
+
+  try {
+    await iVote.$.admin.students.verify(id);
+    iVote.closeModal('verify-modal');
+    iVote.showAlert('Student verified!', 'success');
+    loadStudents();
+  } catch (e) {
+    iVote.showAlert(e.message, 'danger');
+  }
 }
 function openReject(id) { document.getElementById('reject-uid').value=id; document.getElementById('reject-reason').value=''; iVote.openModal('reject-modal'); }
 async function confirmReject() {
@@ -141,18 +252,23 @@ async function confirmReject() {
   try { await iVote.$.admin.students.reject(id,reason); iVote.closeModal('reject-modal'); iVote.showAlert('Student rejected.','success'); loadStudents(); }
   catch(e) { iVote.showAlert(e.message,'danger'); }
 }
-function viewCard(studentId, escapedName) {
-  // Fix #8: look up the student record from in-memory data — never use raw path from inline HTML
-  const s = pendingAll.find(x=>x.id===studentId);
-  const path = s ? s.id_card_path : null;
-  document.getElementById('idcard-title').textContent = 'ID Card — ' + escapedName;
-  const img=document.getElementById('idcard-img'), pdf=document.getElementById('idcard-pdf'), none=document.getElementById('idcard-none');
-  img.style.display=pdf.style.display=none.style.display='none';
-  if (!path) { none.style.display='block'; }
-  else if (path.toLowerCase().endsWith('.pdf')) { document.getElementById('idcard-pdf-link').href='/'+path; pdf.style.display='block'; }
-  else { img.src='/'+path; img.style.display='block'; img.onerror=()=>{img.style.display='none';none.style.display='block';}; }
-  iVote.openModal('idcard-modal');
+function viewCard(userId) {
+  previewImg('ID Card', `/api/admin/students/${userId}/id-card`);
 }
+
+function previewImg(title, src) {
+  document.getElementById('img-modal-title').textContent=title;
+  document.getElementById('img-modal-src').src=src+'?t='+Date.now();
+  // For protected endpoints, we need auth header — use a fetch blob approach
+  if (src.includes('/api/admin/')) {
+    fetch(src,{headers:{'Authorization':'Bearer '+iVote.store.getToken()}})
+      .then(r=>r.blob())
+      .then(b=>{ document.getElementById('img-modal-src').src=URL.createObjectURL(b); })
+      .catch(()=>{});
+  }
+  iVote.openModal('img-modal');
+}
+
 // Tab init
 document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
