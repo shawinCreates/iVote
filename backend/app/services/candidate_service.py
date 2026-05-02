@@ -66,7 +66,7 @@ def approve_candidate(db, candidate_id, admin_id):
     c.approved_at = _now()
     c.user.role = UserRole.CANDIDATE
     _audit(db, "CANDIDATE_APPROVED", admin_id,
-           actor_role="admin", etails=f"Approved candidate '{c.user.full_name}' for '{c.position.name}'")
+           actor_role="admin", details=f"Approved candidate '{c.user.full_name}' for '{c.position.name}'")
     _notify(db, c.user_id, "Candidacy Approved!",
             f"Your application for '{c.position.name}' has been approved.",
             "success", election_id=c.position.election_id)

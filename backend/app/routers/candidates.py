@@ -76,7 +76,7 @@ async def apply(
     with dest.open("wb") as f:
         f.write(content)
 
-    relative = f"candidate_photos/cand_{user.id}_{position_id}{ext}"
+    relative = f"uploads/candidates_photos/cand_{user.id}_{position_id}{ext}"
     try:
         return apply_candidacy(
             db, user.id, position_id, manifesto,

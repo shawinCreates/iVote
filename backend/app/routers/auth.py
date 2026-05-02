@@ -17,7 +17,7 @@ from app.utils.helpers import authenticate, create_token
 from app.db.database import get_db
 from app.db.models import User, UserRole
 from app.schemas.schemas import NotificationOut, TokenOut, UserOut
-from app.core.config import _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR, ID_CARD_DIR
+from app.core.config import _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR, ID_CARD_DIR, PROFILE_PHOTO_DIR
 from app.core.security import hash_password
 from app.core.email_service import generate_reset_token, reset_token_expiry, send_password_reset_email
 
@@ -184,11 +184,11 @@ async def register_stage4(
         raise HTTPException(400, detail="Invalid image data")
 
     ext  = ".jpg"
-    dest = CANDIDATE_PHOTO_DIR / f"profile_{user.tu_registration_number}{ext}"
+    dest = PROFILE_PHOTO_DIR / f"profile_{user.tu_registration_number}{ext}"
     with dest.open("wb") as f:
         f.write(img_bytes)
 
-    user.profile_photo_path  = f"uploads/candidates_photo/profile_{user.tu_registration_number}{ext}"
+    user.profile_photo_path  = f"uploads/profile_photo/profile_{user.tu_registration_number}{ext}"
     user.registration_stage  = RegistrationStage.COMPLETE
     db.commit()
     db.refresh(user)

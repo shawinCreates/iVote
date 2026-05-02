@@ -180,10 +180,21 @@ function initSidebar() {
   const nameEl = document.getElementById('sb-name');
   const roleEl = document.getElementById('sb-role');
   const avEl   = document.getElementById('sb-avatar');
-  // Fix #8: use textContent — never innerHTML with user data
   if (nameEl) nameEl.textContent = u.full_name;
   if (roleEl) roleEl.textContent = u.role === 'election_head' ? 'Election Head' : 'Student';
-  if (avEl)   avEl.textContent   = (u.full_name?.[0] || '?').toUpperCase();
+  if (avEl) {
+    if (u.profile_photo_path) {
+      const img = document.createElement('img');
+      img.src = '/' + u.profile_photo_path;
+      img.alt = u.full_name || '';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+      img.onerror = () => { avEl.removeChild(img); avEl.textContent = (u.full_name?.[0] || '?').toUpperCase(); };
+      avEl.textContent = '';
+      avEl.appendChild(img);
+    } else {
+      avEl.textContent = (u.full_name?.[0] || '?').toUpperCase();
+    }
+  }
   const path = window.location.pathname;
   document.querySelectorAll('.nav-item').forEach(a => {
     a.classList.toggle('active', a.getAttribute('href') === path);

@@ -23,6 +23,8 @@ ID_CARD_DIR = UPLOAD_DIR / "id_cards"
 ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 CANDIDATE_PHOTO_DIR = UPLOAD_DIR / "candidates_photo"
 CANDIDATE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_PHOTO_DIR = UPLOAD_DIR / "profile_photo"
+PROFILE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
 
 _ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/jpg"}
 _MAX_PHOTO_BYTES     = 5 * 1024 * 1024   # 5 MB
