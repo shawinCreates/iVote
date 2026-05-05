@@ -38,18 +38,19 @@
         <label class="form-label">Positions</label>
         <div id="positions-list">
           <div class="pos-row" style="display:flex;gap:10px;margin-bottom:10px;align-items:center">
-            <input class="form-control" placeholder="Position name (e.g. President)" style="flex:2">
-            <input class="form-control" type="number" min="1" max="10" value="1" style="flex:0 0 80px" title="Max winners">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:12px">Title <span class="req">*</span></label>
+              <input type="text" class="form-control" name="pos-name" placeholder="e.g. President">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:12px">Max Winners</label>
+              <input type="number" class="form-control" name="pos-max" value="1" min="1" max="10">
+            </div>
             <button onclick="this.closest('.pos-row').remove()" style="background:none;border:none;color:var(--crimson);cursor:pointer;font-size:18px;flex-shrink:0">✕</button>
           </div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="addPos()">+ Add Position</button>
         <span class="form-hint">Set max winners to 1 for President/Secretary, up to 6 for Members</span>
-      </div>
-      <div class="alert alert-info" style="margin-top:8px;margin-bottom:0">
-        ℹ️ Election phases transition <strong>automatically</strong> based on the dates you set.
-        Paillier HE keys are generated when voting opens. The tally runs automatically when voting closes.
-        Your only manual action is <strong>Publish Results</strong> after reviewing.
       </div>
     </div>
     <div class="modal-ft">
@@ -114,23 +115,22 @@ async function loadElections() {
         <div class="phase-bar">
           <div class="phase-step ${['nomination_open','voting_open','closed','results_published'].includes(el.status)?'done':''}">
             <div class="phase-step-lbl">Nominations</div>
-            <div class="phase-step-date">${iVote.fmtDateShort(el.nomination_start)} – ${iVote.fmtDateShort(el.nomination_end)}</div>
+            <div class="phase-step-date">${iVote.fmtDateTime(el.nomination_start)} – ${iVote.fmtDateTime(el.nomination_end)}</div>
           </div>
           <div class="phase-step ${el.status==='voting_open'?'active':['closed','results_published'].includes(el.status)?'done':''}">
             <div class="phase-step-lbl">Voting</div>
-            <div class="phase-step-date">${iVote.fmtDateShort(el.voting_start)} – ${iVote.fmtDateShort(el.voting_end)}</div>
+            <div class="phase-step-date">${iVote.fmtDateTime(el.voting_start)} – ${iVote.fmtDateTime(el.voting_end)}</div>
           </div>
           <div class="phase-step ${el.status==='results_published'?'active':''}">
             <div class="phase-step-lbl">Results</div>
-            <div class="phase-step-date">${el.results_published_at?iVote.fmtDateShort(el.results_published_at):'Pending'}</div>
+            <div class="phase-step-date">${el.results_published_at?iVote.fmtDateTime(el.results_published_at):'Pending'}</div>
           </div>
         </div>
         <div style="font-size:13px;margin-top:10px"><strong>Positions:</strong> ${el.positions.map(p=>esc(p.name)+` (max ${p.max_votes})`).join(', ')}</div>
         <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-          ${el.status==='nomination_open'&&!el.candidates_locked?`<button class="btn btn-sm btn-outline" onclick="lockCands(${el.id})">🔒 Lock Candidates</button>`:''}
-          ${el.status==='closed'&&el.he_tally_completed?`<button class="btn btn-sm btn-primary" onclick="publishResults(${el.id})">📊 Publish Results</button>`:''}
-          ${el.status==='closed'&&!el.he_tally_completed?`<div class="badge badge-pending" style="padding:6px 12px">⏳ Tally in progress…</div>`:''}
-          ${['closed','results_published'].includes(el.status)?`<a href="/admin/results?id=${el.id}" class="btn btn-sm btn-gold">📊 View Results</a>`:''}
+          ${el.status==='closed'&&el.he_tally_completed?`<button class="btn btn-sm btn-primary" onclick="publishResults(${el.id})">Publish Results</button>`:''}
+          ${el.status==='closed'&&!el.he_tally_completed?`<div class="badge badge-pending" style="padding:6px 12px">Tally in progress…</div>`:''}
+          ${['closed','results_published'].includes(el.status)?`<a href="/admin/results?id=${el.id}" class="btn btn-sm btn-gold">View Results</a>`:''}
         </div>
       </div>
     </div>`).join('');

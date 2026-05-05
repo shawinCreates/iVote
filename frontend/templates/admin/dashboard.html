@@ -15,10 +15,9 @@
 {% endblock %}
 {% block content %}
 <div class="stats-grid" id="stats-grid">
-  <div class="stat-card navy skeleton" style="height:110px"></div>
-  <div class="stat-card red skeleton"  style="height:110px"></div>
-  <div class="stat-card gold skeleton" style="height:110px"></div>
-  <div class="stat-card green skeleton"style="height:110px"></div>
+  <div class="stat-card navy skeleton" style="height:100px"></div>
+  <div class="stat-card red skeleton"  style="height:100px"></div>
+  <div class="stat-card gold skeleton" style="height:100px"></div>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:22px">
   <div class="card">
@@ -49,8 +48,7 @@ async function loadDash() {
     document.getElementById('stats-grid').innerHTML = `
       <div class="stat-card navy"><div class="stat-value">${stats.total_students}</div><div class="stat-label">Total Students</div></div>
       <div class="stat-card red"><div class="stat-value">${stats.pending_verifications}</div><div class="stat-label">Pending Verification</div></div>
-      <div class="stat-card gold"><div class="stat-value">${stats.active_elections}</div><div class="stat-label">Active Elections</div></div>
-      <div class="stat-card green"><div class="stat-value">${stats.total_votes_cast}</div><div class="stat-label">Votes Cast</div></div>`;
+      <div class="stat-card gold"><div class="stat-value">${stats.active_elections}</div><div class="stat-label">Active Elections</div></div>`;
     const nbs = document.getElementById('nb-s'); if(nbs) nbs.textContent = stats.pending_verifications||'';
     const nbc = document.getElementById('nb-c'); if(nbc) nbc.textContent = stats.pending_candidates||'';
     // Pending students
@@ -80,7 +78,7 @@ async function loadDash() {
       <thead><tr><th>Election</th><th>Voting Period</th><th>Status</th><th>HE Keys</th><th>Actions</th></tr></thead>
       <tbody>${elections.map(el=>`<tr>
         <td><strong>${esc(el.name)}</strong><br><span style="font-size:12px;color:var(--g400)">${el.positions.length} position(s)</span></td>
-        <td style="font-size:13px">${iVote.fmtDateShort(el.voting_start)} → ${iVote.fmtDateShort(el.voting_end)}</td>
+        <td style="font-size:13px">${iVote.fmtDateTime(el.voting_start)} → ${iVote.fmtDateTime(el.voting_end)}</td>
         <td>${iVote.statusBadge(el.status)}</td>
         <td>${el.he_key_fingerprint?`<span class="he-badge"> …${esc(el.he_key_fingerprint.slice(-16))}</span>`:'<span style="font-size:12px;color:var(--g400)">—</span>'}</td>
         <td><a href="/admin/elections" class="btn btn-sm btn-outline">Manage</a></td>

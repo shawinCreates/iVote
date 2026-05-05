@@ -23,7 +23,7 @@ from app.services.result_service import get_election_results
 from app.utils.dependencies import require_admin, require_verified
 from app.services.audit_notification_service import get_admin_stats
 
-router = APIRouter(tags=["Elections"])
+router = APIRouter(prefix="/api", tags=["Elections"])
 
 # ===========================================================================
 # Internal schema for status update body
@@ -41,7 +41,7 @@ class _StatusBody(BaseModel):
 # ===========================================================================
 
 @router.get(
-    "/api/elections",
+    "/elections",
     response_model=List[ElectionOut],
     summary="List all elections (student view)",
 )
@@ -53,7 +53,7 @@ async def list_elections(
 
 
 @router.get(
-    "/api/elections/active",
+    "/elections/active",
     response_model=List[ElectionOut],
     summary="List elections currently open for nomination or voting",
 )
@@ -65,7 +65,7 @@ async def list_active_elections(
 
 
 @router.get(
-    "/api/elections/{election_id}",
+    "/elections/{election_id}",
     response_model=ElectionOut,
     summary="Get a single election by ID",
 )
@@ -81,7 +81,7 @@ async def get_election_detail(
 
 
 @router.get(
-    "/api/elections/{election_id}/he-public-key",
+    "/elections/{election_id}/he-public-key",
     summary="Get the HE public key for client-side ballot encryption",
 )
 async def get_he_public_key(
@@ -108,7 +108,7 @@ async def get_he_public_key(
 # ===========================================================================
 
 @router.get(
-    "/api/admin/stats",
+    "/admin/stats",
     summary="Dashboard statistics for the admin panel",
 )
 async def admin_stats(
@@ -119,7 +119,7 @@ async def admin_stats(
 
 
 @router.get(
-    "/api/admin/elections",
+    "/admin/elections",
     response_model=List[ElectionOut],
     summary="List all elections (admin view, no status filter)",
 )
@@ -131,7 +131,7 @@ async def admin_list_elections(
 
 
 @router.post(
-    "/api/admin/elections",
+    "/admin/elections",
     response_model=ElectionOut,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new election with positions",
@@ -145,7 +145,7 @@ async def admin_create_election(
 
 
 @router.put(
-    "/api/admin/elections/{election_id}/status",
+    "/admin/elections/{election_id}/status",
     response_model=ElectionOut,
     summary="Manually advance or revert an election's status",
 )
@@ -165,7 +165,7 @@ async def admin_update_status(
 
 
 @router.post(
-    "/api/admin/elections/{election_id}/lock-candidates",
+    "/admin/elections/{election_id}/lock-candidates",
     response_model=ElectionOut,
     summary="Lock the candidate list so no new applications can be made",
 )
@@ -187,7 +187,7 @@ async def admin_lock_candidates(
 # ---------------------------------------------------------------------------
 
 @router.get(
-    "/api/admin/audit-logs",
+    "/admin/audit-logs",
     summary="Paginated audit log for all actions",
 )
 async def admin_audit_logs(
@@ -200,7 +200,7 @@ async def admin_audit_logs(
 
 
 @router.get(
-    "/api/admin/elections/{election_id}/audit-logs",
+    "/admin/elections/{election_id}/audit-logs",
     summary="Audit log filtered to a specific election",
 )
 async def admin_election_audit_logs(
@@ -212,7 +212,7 @@ async def admin_election_audit_logs(
 
 
 @router.get(
-    "/api/admin/audit-logs/export",
+    "/admin/audit-logs/export",
     summary="Download all audit logs as a CSV file",
 )
 async def admin_export_audit_csv(

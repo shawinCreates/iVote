@@ -51,10 +51,11 @@ def get_election_results(db: Session, election_id: int) -> ElectionResults:
                 candidate_id=cid,
                 candidate_name=cand.user.full_name if cand else f"#{cid}",
                 photo_path=cand.photo_path if cand else None,
-                party_affiliation=cand.party_affiliation if cand else None,
                 vote_count=count,
                 percentage=pct,
                 is_winner=is_winner,
+                program=cand.user.program if cand and cand.user else None,
+                year=str(cand.user.year) if cand and cand.user and cand.user.year else None,
             ))
 
         # Verify using only the public key 

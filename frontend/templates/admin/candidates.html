@@ -193,7 +193,7 @@ function render(){
         </div>
       </td>
       <td>${c.position ? esc(c.position.name) : '—'}</td>
-      <td>${iVote.fmtDateShort(c.applied_at)}</td>
+      <td>${iVote.fmtDateTime(c.applied_at)}</td>
       <td>${iVote.approvalBadge(c.approval_status)}</td>
       <td>
         <div style="display:flex;gap:6px">

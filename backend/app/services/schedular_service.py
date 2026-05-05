@@ -1,115 +1,110 @@
 from __future__ import annotations
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy.orm import Session
 
-from app.core.crypto import fingerprint, generate_keypair, priv_to_json, pub_to_json
 from app.db.database import SessionLocal
-from app.db.models import Election, ElectionStatus, User, UserRole
+from app.db.models import Election, ElectionStatus, Notification, User, UserRole
 from app.services.audit_notification_service import _audit, _notify
-from app.services.he_tally_service import _run_he_tally
+from app.core.crypto import generate_keypair, pub_to_json, priv_to_json, fingerprint
 
-_tally_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="he_tally")
 
-def open_nominations(db: Session, election: Election) -> None:
-    election.status = ElectionStatus.NOMINATION_OPEN
-    _audit(db, "ELECTION_STATUS_CHANGED", None, election_id=election.id,
-           details="[SYSTEM] DRAFT → NOMINATION_OPEN")
-    db.commit()
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
-def open_voting(db: Session, election: Election) -> None:
-    pk, sk = generate_keypair()
-    election.he_public_key_json  = pub_to_json(pk)
-    election.he_private_key_json = priv_to_json(sk)
-    election.he_key_fingerprint  = fingerprint(pk)   
-    election.candidates_locked   = True
-    election.status              = ElectionStatus.VOTING_OPEN
-    _audit(db, "ELECTION_STATUS_CHANGED", None, election_id=election.id,
-           details="[SYSTEM] NOMINATION_OPEN → VOTING_OPEN; HE keys generated; candidates locked")
-    _audit(db, "HE_KEYS_GENERATED", None, election_id=election.id,
-           details=f"Paillier 2048-bit keys auto-generated. Fingerprint: {election.he_key_fingerprint[:16]}…")
-    
+
+def _make_aware(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _notify_all_students(db: Session, title: str, message: str,
+                          ntype: str = "info", election_id: int = None):
+    students = (db.query(User)
+                .filter(User.is_verified == True, User.is_active == True,
+                        User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
+                .all())
+    for s in students:
+        _notify(db, s.id, title, message, ntype, election_id)
+
+
+def tick():
+    """Main tick function — called every 60 seconds by APScheduler."""
+    db: Session = SessionLocal()
+    now = _now()
     try:
-        students = (db.query(User)
-                    .filter(User.is_verified == True, User.is_active == True,
-                            User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
-                    .all())
-        for s in students:
-            _notify(db, s.id, f"Voting is Open — {election.name}",
-                    f"Voting has started for '{election.name}'. Cast your vote before it closes!",
-                    "info", election_id=election.id)
-    except Exception as notify_err:
-        print(f"[WARN] Notification send failed during open_voting: {notify_err}")
-    db.commit()
+        elections = db.query(Election).all()
+        for el in elections:
+            nom_start  = _make_aware(el.nomination_start)
+            nom_end    = _make_aware(el.nomination_end)
+            vote_start = _make_aware(el.voting_start)
+            vote_end   = _make_aware(el.voting_end)
 
-def _run_tally_in_thread(election_id: int) -> None:
-    db = SessionLocal()
-    try:
-        election = db.query(Election).filter(Election.id == election_id).first()
-        if election:
-            _run_he_tally(db, election)
-    except Exception as err:
-        try:
-            _audit(db, "HE_TALLY_ERROR", None, election_id=election_id,
-                   details=f"Tally failed: {err}")
-            db.commit()
-        except Exception:
-            pass
-        print(f"[HE_TALLY] Error for election {election_id}: {err}")
-    finally:
-        db.close()
+            # DRAFT → NOMINATION_OPEN
+            if el.status == ElectionStatus.DRAFT and nom_start and now >= nom_start:
+                el.status = ElectionStatus.NOMINATION_OPEN
+                _audit(db, "ELECTION_STATUS_CHANGED", None, actor_role="system",
+                       election_id=el.id,
+                       details=f"'{el.name}' → NOMINATION_OPEN")
+                _notify_all_students(db, f"Nominations Open — {el.name}",
+                                     f"Nominations are now open for '{el.name}'. "
+                                     f"Apply for candidacy before {nom_end.strftime('%d %b %Y %H:%M')}.",
+                                     "info", el.id)
 
-def close_voting_and_tally(db: Session, election: Election) -> None:
-    election.status = ElectionStatus.CLOSED
-    _audit(db, "ELECTION_STATUS_CHANGED", None, election_id=election.id,
-           details="[SYSTEM] VOTING_OPEN → CLOSED; running HE tally")
-    db.commit()
+            # Lock candidates when nomination closes
+            if (el.status == ElectionStatus.NOMINATION_OPEN
+                    and nom_end and now >= nom_end
+                    and not el.candidates_locked):
+                el.candidates_locked = True
+                _audit(db, "CANDIDATES_LOCKED", None, actor_role="system",
+                       election_id=el.id,
+                       details=f"Candidate list locked automatically at nomination close for '{el.name}'")
 
-    _tally_executor.submit(_run_tally_in_thread, election.id)
+            # NOMINATION_OPEN → VOTING_OPEN: generate HE keys
+            if el.status == ElectionStatus.NOMINATION_OPEN and vote_start and now >= vote_start:
+                try:
+                    pk, sk = generate_keypair(n_bits=2048)
+                    el.he_public_key_json   = pub_to_json(pk)
+                    el.he_private_key_json  = priv_to_json(sk)
+                    el.he_key_fingerprint   = fingerprint(pk)
+                except Exception as ke:
+                    _audit(db, "HE_KEY_GEN_FAILED", None, actor_role="system",
+                           election_id=el.id, details=str(ke))
+                el.status = ElectionStatus.VOTING_OPEN
+                _audit(db, "ELECTION_STATUS_CHANGED", None, actor_role="system",
+                       election_id=el.id,
+                       details=f"'{el.name}' → VOTING_OPEN · HE keys generated · fingerprint={el.he_key_fingerprint}")
+                _notify_all_students(db, f"Voting is Now Open — {el.name}",
+                                     f"Voting has started for '{el.name}'. "
+                                     f"Cast your vote before {vote_end.strftime('%d %b %Y %H:%M')}.",
+                                     "info", el.id)
 
-def _tick() -> None:
-    db = SessionLocal()
-    try:
-        now = datetime.now(timezone.utc)
-        elections = (db.query(Election)
-                     .filter(Election.status.in_([
-                         ElectionStatus.DRAFT,
-                         ElectionStatus.NOMINATION_OPEN,
-                         ElectionStatus.VOTING_OPEN,
-                     ]))
-                     .all())
-        for e in elections:
-            changed = True
-            while changed:
-                changed = False
-                if e.status == ElectionStatus.DRAFT and e.nomination_start <= now:
-                    open_nominations(db, e)
-                    # Reload from DB so status is current for next iteration
-                    db.refresh(e)
-                    changed = True
-                elif e.status == ElectionStatus.NOMINATION_OPEN and e.voting_start <= now:
-                    open_voting(db, e)
-                    db.refresh(e)
-                    changed = True
-                elif e.status == ElectionStatus.VOTING_OPEN and e.voting_end <= now:
-                    close_voting_and_tally(db, e)
-                    db.refresh(e)
-                   
-    except Exception as err:
+            # VOTING_OPEN → CLOSED
+            if el.status == ElectionStatus.VOTING_OPEN and vote_end and now >= vote_end:
+                el.status = ElectionStatus.CLOSED
+                _audit(db, "ELECTION_STATUS_CHANGED", None, actor_role="system",
+                       election_id=el.id,
+                       details=f"'{el.name}' → CLOSED · ready for tally")
+                _notify_all_students(db, f"Voting Closed — {el.name}",
+                                     f"Voting for '{el.name}' has ended. "
+                                     f"Results will be published soon.",
+                                     "info", el.id)
+
+        db.commit()
+    except Exception as exc:
         db.rollback()
-        print(f"[Scheduler] Error: {err}")
+        print(f"[Scheduler] Error: {exc}")
     finally:
         db.close()
 
 
-def start() -> BackgroundScheduler:
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        _tick, "interval", seconds=60, id="election_tick",
-        max_instances=1, coalesce=True,
-    )
+def start():
+    scheduler = BackgroundScheduler(timezone="UTC")
+    scheduler.add_job(tick, "interval", seconds=1, id="election_tick",
+                      replace_existing=True)
     scheduler.start()
-    _tick()
-    return scheduler
+    print("[Scheduler] Election lifecycle scheduler started.")

@@ -6,7 +6,7 @@
 <div class="nav-label">Overview</div>
 <a href="/admin/dashboard"  class="nav-item"><span>Dashboard</span></a>
 <div class="nav-label">Management</div>
-<a href="/admin/students"   class="nav-item active"><span class="nav-icon">👥</span><span>Students</span></a>
+<a href="/admin/students"   class="nav-item active"><span>Students</span></a>
 <a href="/admin/elections"  class="nav-item"><span>Elections</span></a>
 <a href="/admin/candidates" class="nav-item"><span>Candidates</span></a>
 <a href="/admin/results"    class="nav-item"><span>Results</span></a>
@@ -155,7 +155,7 @@ function renderPending(data) {
     </td>
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
     <td>${e(s.faculty)}</td><td>${e(s.program)}</td><td>Year ${e(s.year)}</td><td>Semester ${e(s.semester)}</td>
-    <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
+    <td style="font-size:13px">${iVote.fmtDateTime(s.created_at)}</td>
     <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id})">View ID</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
     <td><div style="display:flex;gap:6px">
       <button class="btn btn-sm btn-success" onclick="openVerify(${s.id})">Verify</button>
@@ -182,7 +182,7 @@ function renderVerified(data) {
     <td style="font-family:monospace;font-size:13px">${e(s.tu_registration_number)}</td>
     <td>${e(s.faculty)}</td><td>${e(s.program)}</td><td>Year ${e(s.year)}</td><td>Semester ${e(s.semester)}</td>
     <td>${s.id_card_path?`<button class="btn btn-sm btn-outline" onclick="viewCard(${s.id})">View ID</button>`:'<span style="color:var(--g400);font-size:12px">None</span>'}</td>
-    <td style="font-size:13px">${iVote.fmtDateShort(s.created_at)}</td>
+    <td style="font-size:13px">${iVote.fmtDateTime(s.created_at)}</td>
   </tr>`).join('');
 }
 function filterPending(q) { renderPending(pendingAll.filter(s=>!q||s.full_name.toLowerCase().includes(q.toLowerCase())||s.tu_registration_number.includes(q)||s.email.toLowerCase().includes(q.toLowerCase()))); }

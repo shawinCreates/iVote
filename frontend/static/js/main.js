@@ -129,20 +129,22 @@ function showSpinner() {
 }
 function hideSpinner() { document.getElementById('_spin')?.remove(); }
 
+function fmtDateTime(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-NP', {day:'2-digit',month:'short',year:'numeric'}) +
+    ' ' + dt.toLocaleTimeString('en-NP', {hour:'2-digit',minute:'2-digit'});
+}
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('en-US', { dateStyle:'medium', timeStyle:'short' });
-}
-function fmtDateShort(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  return new Date(d).toLocaleDateString('en-NP', {day:'2-digit',month:'short',year:'numeric'});
 }
 function timeRemaining(end) {
   const diff = new Date(end) - new Date();
   if (diff <= 0) return 'Ended';
-  const d = Math.floor(diff/86400000), h = Math.floor((diff%86400000)/3600000), m = Math.floor((diff%3600000)/60000);
+  const d = Math.floor(diff/86400000), h = Math.floor((diff%86400000)/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
   if (d > 0) return `${d}d ${h}h`;
-  return `${h}h ${m}m`;
+  return `${h}h ${m}m ${s}s`;
 }
 
 /* ── Badge helpers ───────────────────────────────────────────── */
@@ -218,7 +220,6 @@ async function loadNotifications() {
       list.appendChild(emptyDiv);
       return;
     }
-    // Fix #8: Build notification items via DOM — no innerHTML with user data
     list.textContent = '';
     notifs.slice(0, 10).forEach(n => {
       const item = document.createElement('div');
@@ -339,7 +340,7 @@ window.iVote = {
   store, api, login, logout, $,
   showAlert, showSpinner, hideSpinner,
   openModal, closeModal,
-  fmtDate, fmtDateShort, timeRemaining,
+  fmtDate, fmtDateTime, timeRemaining,
   statusBadge, approvalBadge,
   esc,
   Paillier,

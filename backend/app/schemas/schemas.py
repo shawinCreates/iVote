@@ -156,10 +156,11 @@ class CandidateResult(BaseModel):
     candidate_id: int
     candidate_name: str
     photo_path: Optional[str]
-    party_affiliation: Optional[str]
     vote_count: int
     percentage: float
     is_winner: bool
+    program: Optional[str]
+    year: Optional[str]
 
 class PositionResult(BaseModel):
     position_id: int
