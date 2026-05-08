@@ -8,7 +8,7 @@ from app.utils.dependencies import require_verified
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import HEBallotIn, VoteConfirmation, HasVotedOut
-from app.services import voting_service
+from app.services.voting_service import cast_he_ballot, get_participation
 
 router = APIRouter(prefix="/api", tags=["Voting"])
 
@@ -20,7 +20,7 @@ async def cast_vote(
     user: User = Depends(require_verified)
 ):
     try:
-        return voting_service.cast_he_ballot(db, user.id, ballot, ip=request.client.host)
+        return cast_he_ballot(db, user.id, ballot, ip=request.client.host)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -30,7 +30,7 @@ async def check_voted(
     db: Session = Depends(get_db),
     user: User = Depends(require_verified)
 ):
-    vparticipation = voting_service.get_participation(db, user.id, election_id)
+    vparticipation = get_participation(db, user.id, election_id)
     if vparticipation:
         return HasVotedOut(
             has_voted=True,

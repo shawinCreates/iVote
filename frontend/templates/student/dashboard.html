@@ -35,6 +35,7 @@ async function loadDash() {
     const [elections, mine] = await Promise.all([iVote.$.elections.all(), iVote.$.candidates.mine().catch(()=>[])]);
     const votingE   = elections.find(e=>e.status==='voting_open');
     const nomE      = elections.find(e=>e.status==='nomination_open');
+    const nomClosed = elections.find(e=>e.status==='nomination_closed');
     const published = elections.filter(e=>e.status==='results_published');
     let voted=null;
     if (votingE && user && user.is_verified) voted = await iVote.$.elections.hasVoted(votingE.id).catch(()=>null);
@@ -91,14 +92,16 @@ async function loadDash() {
       <a href="/student/candidates" class="action-tile"><div class="action-tile-lbl">Browse Candidates</div><div class="action-tile-sub">Explore profiles &amp; manifestos</div></a>
       <a href="/student/vote" class="action-tile${!votingE||(voted&&voted.has_voted)?' dim':''}"><div class="action-tile-lbl">Cast My Vote</div><div class="action-tile-sub">${votingE?(voted&&voted.has_voted?'Already voted':'Voting is open!'):'No active voting'}</div></a>
       <a href="/student/results" class="action-tile${!published.length?' dim':''}"><div class="action-tile-lbl">View Results</div><div class="action-tile-sub">${published.length?`${published.length} result(s) available`:'Not yet published'}</div></a>
-      <a href="/student/candidacy" class="action-tile${!nomE?' dim':''}"><div class="action-tile-lbl">Run for Office</div><div class="action-tile-sub">${nomE?'Nominations open now!':'No nominations open'}</div></a>
+      <a href="/student/candidacy" class="action-tile${!nomE?' dim':''}"><div class="action-tile-lbl">Run for Office</div><div class="action-tile-sub">${nomE?'Nominations open now!':nomClosed?'Nominations have closed':'No nominations open'}</div></a>
     </div>`;
     // Elections list
     if (elections.length) {
       html+=`<div class="card"><div class="card-hd"><div class="card-title">All Elections</div></div>`;
       elections.forEach((el,i)=>{
         html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;gap:12px;flex-wrap:wrap;${i<elections.length-1?'border-bottom:1px solid var(--g100)':''}">
-          <div><div style="font-weight:600">${esc(el.name)}</div><div style="font-size:12px;color:var(--g400)">Voting: ${iVote.fmtDateShort(el.voting_start)} → ${iVote.fmtDateShort(el.voting_end)}</div></div>
+          <div><div style="font-weight:600">${esc(el.name)}</div>
+          <div style="font-size:12px;color:var(--g400)">Nomination: ${iVote.fmtDateTime(el.nomination_start)} → ${iVote.fmtDateTime(el.nomination_end)}</div>
+          <div style="font-size:12px;color:var(--g400)">Voting: ${iVote.fmtDateTime(el.voting_start)} → ${iVote.fmtDateTime(el.voting_end)}</div></div>
           <div style="display:flex;align-items:center;gap:10px">
             ${iVote.statusBadge(el.status)}
             ${el.status==='voting_open'?`<a href="/student/vote" class="btn btn-sm btn-primary">Vote</a>`:''}
@@ -109,7 +112,7 @@ async function loadDash() {
       html+='</div>';
     }
     document.getElementById('dash-content').innerHTML=html;
-  } catch(err) { document.getElementById('dash-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading dashboard</div></div>`; }
+  } catch(err) { document.getElementById('dash-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading dashboard ${err.message}</div></div>`; }
 }
 loadDash();
 </script>

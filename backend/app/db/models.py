@@ -22,6 +22,7 @@ class UserRole(str, enum.Enum):
 class ElectionStatus(str, enum.Enum):
     DRAFT = "draft"
     NOMINATION_OPEN = "nomination_open"
+    NOMINATION_CLOSED = "nomination_closed"
     VOTING_OPEN = "voting_open"
     CLOSED = "closed"
     RESULTS_PUBLISHED  = "results_published"
@@ -63,7 +64,7 @@ class User(Base):
     reset_token_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     # Face verification snapshot stored per voting session
-    last_face_verified_at = Column(DateTime(timezone=True), nullable=True)
+    # last_face_verified_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
     candidacies    = relationship("Candidate", back_populates="user",  cascade="all, delete-orphan")
@@ -92,6 +93,8 @@ class Election(Base):
     he_private_key_json = Column(Text, nullable=True)
     he_key_fingerprint = Column(String(64), nullable=True)  
     he_tally_completed = Column(Boolean, nullable=False, default=False)
+    elegible_voters = Column(Integer, nullable=True)
+    turnout_voters = Column(Integer, nullable=True)
 
     creator = relationship("User", foreign_keys=[created_by])
     positions = relationship("Position", back_populates="election", cascade="all, delete-orphan")
@@ -122,9 +125,6 @@ class Candidate(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
     manifesto = Column(Text, nullable=True)
-    facebook_url = Column(String(255), nullable=True)
-    instagram_url = Column(String(255), nullable=True)
-    contact_email = Column(String(255), nullable=True)
     photo_path = Column(String(500), nullable=True)
     approval_status = Column(SAEnum(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING)
     rejection_reason = Column(Text, nullable=True)
@@ -149,7 +149,7 @@ class VoterParticipation(Base):
     election_id = Column(Integer, ForeignKey("elections.id"), nullable=False)
     voted_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     confirmation_code = Column(String(20), nullable=False)
-    face_verified = Column(Boolean, nullable=False, default=False)
+    # face_verified = Column(Boolean, nullable=False, default=False)
 
     voter    = relationship("User", back_populates="participations")
     election = relationship("Election", back_populates="participations")

@@ -48,7 +48,7 @@
         <div class="form-group">
           <label class="form-label">TU Registration Number <span class="req">*</span></label>
           <input type="text" class="form-control mono" id="tu_reg"
-                 placeholder="e.g. 2-2-234-2021" autocomplete="off">
+                 placeholder="e.g. 2-2-20-234-2021" autocomplete="off">
           <div class="form-hint">Format: digits-digits-digits-digits-digits (dashes required)</div>
         </div>
         <div class="form-group">
@@ -595,7 +595,6 @@ async function stage4() {
     // Replace card content with success message
     document.querySelector('.auth-card').innerHTML = `
       <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:64px;margin-bottom:20px">🎉</div>
         <h2 style="margin-bottom:10px">Registration Complete!</h2>
         <p style="font-size:14px;color:var(--t2);margin-bottom:24px">
           Your application has been submitted. The Election Head will

@@ -150,6 +150,7 @@ function timeRemaining(end) {
 /* ── Badge helpers ───────────────────────────────────────────── */
 const STATUS_LABELS = {
   draft:'Draft', nomination_open:'Nominations Open',
+  nomination_closed:'Nominations Closed',
   voting_open:'Voting Open', closed:'Closed', results_published:'Results Published'
 };
 function statusBadge(s) {

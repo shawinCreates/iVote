@@ -23,7 +23,7 @@ from app.services.result_service import get_election_results
 from app.utils.dependencies import require_admin, require_verified
 from app.services.audit_notification_service import get_admin_stats
 
-router = APIRouter(prefix="/api", tags=["Elections"])
+router = APIRouter(tags=["Elections"])
 
 # ===========================================================================
 # Internal schema for status update body
@@ -41,7 +41,7 @@ class _StatusBody(BaseModel):
 # ===========================================================================
 
 @router.get(
-    "/elections",
+    "/api/elections",
     response_model=List[ElectionOut],
     summary="List all elections (student view)",
 )
@@ -53,7 +53,7 @@ async def list_elections(
 
 
 @router.get(
-    "/elections/active",
+    "/api/elections/active",
     response_model=List[ElectionOut],
     summary="List elections currently open for nomination or voting",
 )
@@ -65,7 +65,7 @@ async def list_active_elections(
 
 
 @router.get(
-    "/elections/{election_id}",
+    "/api/elections/{election_id}",
     response_model=ElectionOut,
     summary="Get a single election by ID",
 )
@@ -81,7 +81,7 @@ async def get_election_detail(
 
 
 @router.get(
-    "/elections/{election_id}/he-public-key",
+    "/api/elections/{election_id}/he-public-key",
     summary="Get the HE public key for client-side ballot encryption",
 )
 async def get_he_public_key(
@@ -94,8 +94,8 @@ async def get_he_public_key(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Election not found")
     if not election.he_public_key_json:
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            detail="No public key has been generated for this election yet",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Encryption keys are not ready yet. The election must reach voting phase first.",
         )
     return {
         "election_id":    election.id,
@@ -108,7 +108,7 @@ async def get_he_public_key(
 # ===========================================================================
 
 @router.get(
-    "/admin/stats",
+    "/api/admin/stats",
     summary="Dashboard statistics for the admin panel",
 )
 async def admin_stats(
@@ -119,7 +119,7 @@ async def admin_stats(
 
 
 @router.get(
-    "/admin/elections",
+    "/api/admin/elections",
     response_model=List[ElectionOut],
     summary="List all elections (admin view, no status filter)",
 )
@@ -131,7 +131,7 @@ async def admin_list_elections(
 
 
 @router.post(
-    "/admin/elections",
+    "/api/admin/elections",
     response_model=ElectionOut,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new election with positions",
@@ -145,7 +145,7 @@ async def admin_create_election(
 
 
 @router.put(
-    "/admin/elections/{election_id}/status",
+    "/api/admin/elections/{election_id}/status",
     response_model=ElectionOut,
     summary="Manually advance or revert an election's status",
 )
@@ -165,7 +165,7 @@ async def admin_update_status(
 
 
 @router.post(
-    "/admin/elections/{election_id}/lock-candidates",
+    "/api/admin/elections/{election_id}/lock-candidates",
     response_model=ElectionOut,
     summary="Lock the candidate list so no new applications can be made",
 )
@@ -187,7 +187,7 @@ async def admin_lock_candidates(
 # ---------------------------------------------------------------------------
 
 @router.get(
-    "/admin/audit-logs",
+    "/api/admin/audit-logs",
     summary="Paginated audit log for all actions",
 )
 async def admin_audit_logs(
@@ -200,7 +200,7 @@ async def admin_audit_logs(
 
 
 @router.get(
-    "/admin/elections/{election_id}/audit-logs",
+    "/api/admin/elections/{election_id}/audit-logs",
     summary="Audit log filtered to a specific election",
 )
 async def admin_election_audit_logs(
@@ -212,7 +212,7 @@ async def admin_election_audit_logs(
 
 
 @router.get(
-    "/admin/audit-logs/export",
+    "/api/admin/audit-logs/export",
     summary="Download all audit logs as a CSV file",
 )
 async def admin_export_audit_csv(

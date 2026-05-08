@@ -6,9 +6,9 @@
 <div class="nav-label">Overview</div>
 <a href="/admin/dashboard"  class="nav-item active"><span>Dashboard</span></a>
 <div class="nav-label">Management</div>
-<a href="/admin/students"   class="nav-item"><span>Students</span><span class="nav-badge" id="nb-s"></span></a>
+<a href="/admin/students"   class="nav-item"><span>Students</span></a>
 <a href="/admin/elections"  class="nav-item"><span>Elections</span></a>
-<a href="/admin/candidates" class="nav-item"><span>Candidates</span><span class="nav-badge" id="nb-c"></span></a>
+<a href="/admin/candidates" class="nav-item"><span>Candidates</span></a>
 <a href="/admin/results"    class="nav-item"><span>Results</span></a>
 <div class="nav-label">System</div>
 <a href="/admin/audit"      class="nav-item"><span>Audit Logs</span></a>
@@ -49,13 +49,15 @@ async function loadDash() {
       <div class="stat-card navy"><div class="stat-value">${stats.total_students}</div><div class="stat-label">Total Students</div></div>
       <div class="stat-card red"><div class="stat-value">${stats.pending_verifications}</div><div class="stat-label">Pending Verification</div></div>
       <div class="stat-card gold"><div class="stat-value">${stats.active_elections}</div><div class="stat-label">Active Elections</div></div>`;
-    const nbs = document.getElementById('nb-s'); if(nbs) nbs.textContent = stats.pending_verifications||'';
-    const nbc = document.getElementById('nb-c'); if(nbc) nbc.textContent = stats.pending_candidates||'';
     // Pending students
     const se = document.getElementById('ps-list');
     se.innerHTML = students.length ? students.slice(0,5).map((s,i)=>`
       <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;${i<Math.min(students.length,5)-1?'border-bottom:1px solid var(--g100)':''}">
-        <div><div style="font-weight:600;font-size:14px">${esc(s.full_name)}</div>
+        <div>
+          <img src="${s.profile_photo_path ? '/' + s.profile_photo_path : '/static/images/default_avatar.jpg'}"
+               style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"
+               onerror="this.onerror=null;this.src='/static/images/default_avatar.jpg'">
+          <div style="font-weight:600;font-size:14px">${esc(s.full_name)}</div>
         <div style="font-size:12px;color:var(--g400)">${esc(s.faculty)} · Year ${s.year} · ${esc(s.tu_registration_number)}</div></div>
         <button class="btn btn-sm btn-success" onclick="verifyS(${s.id},this)">✓ Verify</button>
       </div>`).join('')+(students.length>5?`<div style="padding:8px 20px;font-size:12px;color:var(--g400);text-align:center">${students.length-5} more · <a href="/admin/students">view all</a></div>`:'')
@@ -65,7 +67,9 @@ async function loadDash() {
     ce.innerHTML = cands.length ? cands.slice(0,5).map((c,i)=>`
       <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;${i<Math.min(cands.length,5)-1?'border-bottom:1px solid var(--g100)':''}">
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy-mid));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px">${esc(c.user.full_name[0])}</div>
+          <img src="${c.photo_path ? '/' + c.photo_path : '/static/images/default_avatar.jpg'}"
+               style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"
+               onerror="this.onerror=null;this.src='/static/images/default_avatar.jpg'">
           <div><div style="font-weight:600;font-size:14px">${esc(c.user.full_name)}</div>
           <div style="font-size:12px;color:var(--g400)">${c.position?esc(c.position.name):'—'} · ${esc(c.user.faculty)}</div></div>
         </div>

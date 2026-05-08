@@ -113,6 +113,8 @@ class CandidateOut(BaseModel):
     user_id: int
     position_id: int
     manifesto: Optional[str]
+    election_id: Optional[int] = None
+    votes_received: Optional[int] = None  
     facebook_url: Optional[str] = None
     instagram_url: Optional[str] = None
     contact_email: Optional[str] = None

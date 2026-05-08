@@ -19,13 +19,15 @@ from app.schemas.schemas import (
 )
 from app.services.audit_notification_service import _audit, _notify, get_audit_logs
 from app.utils.helpers import _now
+from app.services.he_tally_service import _run_he_tally
 
 # ---------------------------------------------------------------------------
 # Valid status transitions — enforced on every manual status change
 # ---------------------------------------------------------------------------
 _VALID_TRANSITIONS: dict[ElectionStatus, list[ElectionStatus]] = {
     ElectionStatus.DRAFT:              [ElectionStatus.NOMINATION_OPEN],
-    ElectionStatus.NOMINATION_OPEN:    [ElectionStatus.VOTING_OPEN, ElectionStatus.DRAFT],
+    ElectionStatus.NOMINATION_OPEN:     [ElectionStatus.NOMINATION_CLOSED, ElectionStatus.DRAFT],  # ← changed
+    ElectionStatus.NOMINATION_CLOSED:   [ElectionStatus.VOTING_OPEN],
     ElectionStatus.VOTING_OPEN:        [ElectionStatus.CLOSED],
     ElectionStatus.CLOSED:             [ElectionStatus.RESULTS_PUBLISHED],
     ElectionStatus.RESULTS_PUBLISHED:  [],
@@ -49,6 +51,7 @@ def get_active_elections(db: Session) -> List[Election]:
         db.query(Election)
         .filter(Election.status.in_([
             ElectionStatus.NOMINATION_OPEN,
+            ElectionStatus.NOMINATION_CLOSED,
             ElectionStatus.VOTING_OPEN,
         ]))
         .order_by(Election.voting_start)
@@ -134,11 +137,11 @@ def update_election_status(
             .all()
         )
         if new_status == ElectionStatus.VOTING_OPEN:
-            title = "Voting Has Started! 🗳️"
+            title = "Voting Has Started!"
             msg   = f"Voting is now open for '{election.name}'. Cast your vote before it closes."
             ntype = "info"
         else:
-            title = "Results Published! 🏆"
+            title = "Results Published!"
             msg   = f"Results for '{election.name}' have been published. Check the results page."
             ntype = "success"
 
@@ -154,9 +157,8 @@ def lock_candidates(db: Session, election_id: int, admin_id: int) -> Election:
     election = get_election(db, election_id)
     if not election:
         raise ValueError("Election not found")
-    if election.status != ElectionStatus.NOMINATION_OPEN:
-        raise ValueError("Candidates can only be locked while nominations are open")
-
+    if election.status not in (ElectionStatus.NOMINATION_OPEN, ElectionStatus.NOMINATION_CLOSED):
+        raise ValueError("Candidates can only be locked while nominations are open or closed")
     election.candidates_locked = True
     _audit(db, "CANDIDATES_LOCKED", admin_id,
            election_id=election_id,

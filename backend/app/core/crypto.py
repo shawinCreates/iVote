@@ -14,9 +14,8 @@ from app.core.paillier import (
 KEY_BITS = 2048
 
 # Key generation 
-def generate_keypair(n_bits: int = KEY_BITS) -> Tuple[PaillierPublicKey,
-                                                        PaillierPrivateKey]:
-    return generate_paillier_keypair(n_length=n_bits)
+def generate_keypair(n_bits: int = KEY_BITS) -> Tuple[PaillierPublicKey, PaillierPrivateKey]:
+    return generate_paillier_keypair(n_bits)
 
 
 # Serialisation 
@@ -40,11 +39,11 @@ def priv_from_json(s: str, pk: PaillierPublicKey) -> PaillierPrivateKey:
 
 # Convert an EncryptedNumber to a plain dict for JSON storage.
 def enc_to_dict(e: EncryptedNumber) -> dict:
-    return {"c": str(e.ciphertext()), "x": e.exponent}
+    return {"c": str(e.ciphertext())}
 
 # Reconstruct an EncryptedNumber from a stored dict.
 def enc_from_dict(d: dict, pk: PaillierPublicKey) -> EncryptedNumber:
-    return EncryptedNumber(pk, int(d["c"]), int(d["x"]))
+    return EncryptedNumber(pk, int(d["c"]))
 
 # Serialise a list of EncryptedNumbers (one per candidate) to JSON.
 def ballot_to_json(ballot: List[EncryptedNumber]) -> str:

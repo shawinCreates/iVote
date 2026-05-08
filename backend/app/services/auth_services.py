@@ -54,7 +54,7 @@ def verify_student(db: Session, user_id: int, admin_id: int,
         return None
     try:
         user.is_verified = True
-        _audit(db, "STUDENT_VERIFIED", admin_id,
+        _audit(db, "STUDENT_VERIFIED", admin_id, actor_role="admin",
                details=f"Verified user ID {user_id}", ip=ip)
         _notify(db, user_id, "Account Verified",
                 "Your student account has been verified. You can now participate in elections.",
@@ -73,7 +73,7 @@ def reject_student(db: Session, user_id: int, admin_id: int,
         return False
     user.is_active = False
     user.rejection_reason = reason or "Registration not approved."
-    _audit(db, "STUDENT_REJECTED", admin_id,
+    _audit(db, "STUDENT_REJECTED", admin_id, actor_role="admin",
            details=f"Rejected user ID {user_id}", ip=ip) 
     db.commit()
     return True

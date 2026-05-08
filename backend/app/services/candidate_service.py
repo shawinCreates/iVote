@@ -24,7 +24,7 @@ def get_approved_candidates(db, position_id: int):
             .all())
 
 def apply_candidacy(db, user_id, position_id, manifesto, 
-                    facebook_url, instagram_url, contact_email, photo_path):
+                 photo_path):
     pos = db.query(Position).filter(Position.id == position_id).first()
     if not pos:
         raise ValueError("Position not found")
@@ -49,8 +49,7 @@ def apply_candidacy(db, user_id, position_id, manifesto,
         )
 
     c = Candidate(user_id=user_id, position_id=position_id,
-                  manifesto=manifesto, facebook_url  = facebook_url, instagram_url = instagram_url, 
-                  contact_email = contact_email, photo_path=photo_path)
+                  manifesto=manifesto, photo_path=photo_path)
     db.add(c)
     _audit(db, "CANDIDACY_APPLIED", user_id,actor_role="student", election_id=e.id,
            details=f"Applied for position ID {position_id}")
@@ -80,7 +79,7 @@ def reject_candidate(db, candidate_id, admin_id, reason = None):
         raise ValueError("Candidate not found")
     c.approval_status = ApprovalStatus.REJECTED
     c.rejection_reason = reason or "Not approved by Election Head."
-    _audit(db, "CANDIDATE_REJECTED", admin_id,
+    _audit(db, "CANDIDATE_REJECTED", admin_id, actor_role="admin", 
            details=f"Rejected candidate ID {candidate_id}")
     _notify(db, c.user_id, "Candidacy Not Approved",
             f"Your application for '{c.position.name}' was not approved. {c.rejection_reason}",

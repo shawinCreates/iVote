@@ -114,7 +114,9 @@ function renderCands(data) {
           <div class="cand-body">
             <div class="cand-name">${e(c.user.full_name)}</div>
             <div class="cand-pos">${e(posName)}</div>
-            <div class="cand-party">${e(c.party_affiliation||'Independent Candidate')}</div>
+            <div class="cand-faculty">${e(c.user.faculty)}</div>
+            <div class="cand-program">${e(c.user.program)}</div>
+            <div class="cand-year">Year ${e(c.user.year)} ${c.user.semester?'· Semester '+c.user.semester:''}</div>
             <div class="cand-manifesto">${e((c.manifesto||'No manifesto provided.').substring(0,120))}</div>
             <div class="cand-meta"><span class="cand-views">👁 ${c.profile_views} views</span><span style="font-size:12px;color:var(--crimson);font-weight:600">Read More →</span></div>
           </div>
@@ -126,7 +128,6 @@ function renderCands(data) {
 }
 
 function viewCand(candId) {
-  // Fix #8: look up by id from local array — never pass raw objects through onclick strings
   const c = allCands.find(x=>x.id===candId);
   if (!c) return;
   const e = iVote.esc;
@@ -136,7 +137,6 @@ function viewCand(candId) {
   const body = document.getElementById('cm-body');
   body.innerHTML = '';
 
-  // Photo + info row
   const topRow = document.createElement('div');
   topRow.style.cssText = 'display:flex;gap:18px;margin-bottom:18px;align-items:flex-start';
   const photoWrap = document.createElement('div');
@@ -155,7 +155,9 @@ function viewCand(candId) {
   infoDiv.innerHTML = `
     <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700">${e(c.user.full_name)}</div>
     <div style="color:var(--crimson);font-weight:600;margin-top:4px">${e(c._posName||'Candidate')}</div>
-    <div style="font-size:13px;color:var(--g400);margin-top:5px">${e(c.party_affiliation||'Independent')} · ${e(c.user.faculty)} · Year ${e(c.user.year)}</div>
+    <div style="font-size:13px;color:var(--g400);margin-top:5px">${e(c.user.faculty)}</div>
+    <div style="font-size:13px;color:var(--g400);margin-top:5px">${e(c.user.program)}</div>
+    <div style="font-size:13px;color:var(--g400);margin-top:5px">Year ${e(c.user.year)} ${c.user.semester?'· Sem '+c.user.semester:''}</div>
     <div style="font-size:12px;color:var(--g400);margin-top:4px">👁 ${c.profile_views} profile views</div>
     ${c._posMax>1?`<div style="margin-top:8px"><span class="badge badge-candidate">Multi-seat · Up to ${c._posMax} winners</span></div>`:''}`;
   topRow.appendChild(photoWrap);
@@ -165,7 +167,7 @@ function viewCand(candId) {
   // Manifesto header
   const mLabel = document.createElement('div');
   mLabel.style.cssText = 'font-weight:700;font-size:14px;margin-bottom:10px;font-family:\'Playfair Display\',serif';
-  mLabel.textContent = '📜 Manifesto & Agenda';
+  mLabel.textContent = 'Manifesto & Agenda';
   body.appendChild(mLabel);
 
   // Manifesto text — textContent prevents XSS

@@ -13,15 +13,15 @@ def get_election_results(db: Session, election_id: int) -> ElectionResults:
     if not election:
         raise ValueError("Election not found")
 
-    total_eligible = (db.query(User)
-                  .filter(User.is_verified == True,
-                          User.is_active == True,
-                          User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
-                  .count())
-    total_cast = (db.query(VoterParticipation)
-                  .filter(VoterParticipation.election_id == election_id)
-                  .count())
-    turnout = round((total_cast / total_eligible * 100) if total_eligible else 0, 2)
+   # Use stored historical snapshots
+    total_eligible = election.elegible_voters or 0
+    total_cast = election.turnout_voters or 0
+
+    turnout = round(
+        (total_cast / total_eligible * 100)
+        if total_eligible else 0,
+        2
+    )
 
     position_results = []
     all_verified = True

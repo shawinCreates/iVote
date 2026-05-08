@@ -37,7 +37,6 @@
         <div style="font-size:12px;color:var(--g600);line-height:1.5">Your ballot is being <strong>encrypted in your
             browser</strong> right now using the election's public key. The server will only ever receive ciphertexts —
           your choices are mathematically hidden until the final tally is decrypted.</div>
-        <div id="he-fingerprint" style="font-size:10px;color:var(--g400);margin-top:5px;font-family:monospace"></div>
       </div>
     </div>
     <div class="modal-ft">
@@ -59,7 +58,7 @@
       const elections = await iVote.$.elections.all();
       election = elections.find(e => e.status === 'voting_open');
       if (!election) {
-        cont.innerHTML = `<div class="empty"><div class="empty-icon">🗳️</div><div class="empty-title">No active election</div><div class="empty-text">There is no election open for voting right now.</div><a href="/student/dashboard" class="btn btn-navy" style="margin-top:20px">← Dashboard</a></div>`;
+        cont.innerHTML = `<div class="empty"><div class="empty-title">No active election</div><div class="empty-text">There is no election open for voting right now.</div><a href="/student/dashboard" class="btn btn-navy" style="margin-top:20px">← Dashboard</a></div>`;
         return;
       }
       const voted = await iVote.$.elections.hasVoted(election.id);
@@ -79,13 +78,34 @@
       }
       // Fetch HE public key — required for HE-only voting
       try {
-        const hePk = await iVote.$.elections.heKey(election.id);
-        hePublicKeyN = JSON.parse(hePk.public_key_json).n;
-        document.getElementById('he-fingerprint').textContent = `Key fingerprint: …${hePk.fingerprint}`;
-      } catch (e) {
-        cont.innerHTML = `<div class="empty"><div class="empty-title">Encryption keys not ready</div><div class="empty-text">The election encryption keys are being prepared. Please refresh in a moment.</div><button class="btn btn-navy" style="margin-top:20px" onclick="loadVote()">⟳ Refresh</button></div>`;
-        return;
-      }
+  const hePk = await iVote.$.elections.heKey(election.id);
+
+  hePublicKeyN = JSON.parse(hePk.public_key_json).n;
+
+  const fp = document.getElementById('he-fingerprint');
+
+  if (fp) {
+    fp.textContent = `Key fingerprint: …${hePk.fingerprint}`;
+  }
+
+} catch (e) {
+
+  console.error("HE key load failed:", e);
+
+  cont.innerHTML = `
+    <div class="empty">
+      <div class="empty-title">Encryption keys not ready</div>
+      <div class="empty-text">
+        The election encryption keys are being prepared.
+        Please refresh in a moment.
+      </div>
+      <button class="btn btn-navy"
+              style="margin-top:20px"
+              onclick="loadVote()">⟳ Refresh</button>
+    </div>`;
+
+  return;
+}
       // Build ballot UI
       const e = iVote.esc;
       let html = `<div style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-radius:16px;padding:24px 28px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:20px">

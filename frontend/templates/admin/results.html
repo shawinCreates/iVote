@@ -33,8 +33,24 @@
     </div>
   </div>
 </div>
-{% endblock %}
-{% block scripts %}
+<!-- PUBLISH CONFIRMATION MODAL -->
+<div class="modal-overlay" id="publish-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd">
+      <div class="modal-title">Publish Results</div>
+      <button class="modal-close" onclick="iVote.closeModal('publish-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="publish-alert" style="display:none;margin-bottom:12px"></div>
+      <p style="margin:0">Students will be notified and can view the results immediately. This action cannot be undone.</p>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-outline" onclick="iVote.closeModal('publish-modal')">Cancel</button>
+      <button class="btn btn-primary" id="publish-confirm-btn" onclick="confirmPublish()">Publish Results</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let currentElectionId = null;
   async function init() {
@@ -50,7 +66,7 @@
   async function loadResults() {
     const id = document.getElementById('el-sel').value;
     currentElectionId = id;
-    if (!id) { document.getElementById('results-area').innerHTML = '<div class="empty"><div class="empty-icon"></div><div class="empty-title">Select an election</div></div>'; document.getElementById('pub-btn-wrap').innerHTML = ''; return; }
+    if (!id) { document.getElementById('results-area').innerHTML = '<div class="empty"><div class="empty-title">Select an election</div></div>'; document.getElementById('pub-btn-wrap').innerHTML = ''; return; }
     try {
       iVote.showSpinner();
       const [r, elections] = await Promise.all([iVote.$.admin.elections.results(id), iVote.$.admin.elections.all()]);
@@ -58,18 +74,36 @@
       iVote.hideSpinner();
       // Publish button
       const pbw = document.getElementById('pub-btn-wrap');
-      pbw.innerHTML = electionObj && electionObj.status === 'closed' ? `<button class="btn btn-primary" onclick="publishResults()">Publish Results to Students</button>`
+      pbw.innerHTML = electionObj && electionObj.status === 'closed' ? `<button class="btn btn-primary" onclick="openPublishModal()">Publish Results to Students</button>`
         : electionObj && electionObj.status === 'results_published' ? '<span class="badge badge-results_published" style="padding:6px 12px">Published</span>' : '';
       renderResults(r, electionObj);
     } catch (err) {
       iVote.hideSpinner();
-      document.getElementById('results-area').innerHTML = `<div class="empty"><div class="empty-title">Error loading content</div><div class="empty-title">${err.message}</div></div>`;
+      document.getElementById('results-area').innerHTML = `<div class="empty"><div class="empty-title">Error loading content</div></div>`;
     }
   }
-  async function publishResults() {
-    if (!confirm('Publish results? Students will be notified and can view them immediately.')) return;
-    try { iVote.showSpinner(); await iVote.$.admin.elections.publish(currentElectionId); iVote.hideSpinner(); iVote.showAlert('Results published to students!', 'success'); loadResults(); }
-    catch (e) { iVote.hideSpinner(); iVote.showAlert(e.message, 'danger'); }
+  function openPublishModal() {
+    const al = document.getElementById('publish-alert');
+    al.style.display = 'none'; al.textContent = '';
+    document.getElementById('publish-confirm-btn').disabled = false;
+    document.getElementById('publish-confirm-btn').style.opacity = '1';
+    iVote.openModal('publish-modal');
+  }
+  async function confirmPublish() {
+    const al = document.getElementById('publish-alert');
+    al.style.display = 'none'; al.textContent = '';
+    const btn = document.getElementById('publish-confirm-btn');
+    btn.disabled = true; btn.style.opacity = '0.6';
+    try {
+      await iVote.$.admin.elections.publish(currentElectionId);
+      iVote.closeModal('publish-modal');
+      iVote.showAlert('Results published to students!', 'success');
+      loadResults();
+    } catch(e) {
+      al.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:14px;background:#fff0f0;border:1px solid #f5c6cb;color:#c0392b;margin-bottom:12px';
+      al.textContent = e.message || 'Failed to publish results. Please try again.';
+      btn.disabled = false; btn.style.opacity = '1';
+    }
   }
   function renderResults(r, electionObj) {
     const esc = iVote.esc;
@@ -79,7 +113,7 @@
       <div>
         <div class="e-hero-label">Results — ${r.tally_verified ? '<span style="color:#7dffc0">✓ Tally Verified</span>' : 'Unverified'}</div>
         <div class="e-hero-name">${esc(r.election_name)}</div>
-        ${r.published_at ? `<div class="e-hero-sub">Published: ${iVote.fmtDateTime(r.published_at)}</div>` : '<div class="e-hero-sub" style="color:var(--gold)"> Not yet published to students</div>'}
+        ${r.published_at ? `<div class="e-hero-sub">Published: ${iVote.fmtDate(r.published_at)}</div>` : '<div class="e-hero-sub" style="color:var(--gold)">Not yet published to students</div>'}
       </div>
       <div style="display:flex;gap:28px">
         <div style="text-align:center"><div class="e-hero-timer">${r.total_eligible}</div><div class="e-hero-timer-lbl">Eligible</div></div>
@@ -110,16 +144,7 @@
                 ${c.is_winner ? '<span class="winner-crown"></span>' : `<span style="color:var(--g400);font-size:13px;width:20px;text-align:center">#${i + 1}</span>`}
                 ${c.photo_path ? `<img src="/${esc(c.photo_path)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--g200)" onerror="this.style.display='none'">` :
           `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy-mid));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">${esc(c.candidate_name[0])}</div>`}
-                <div style="flex:1">
-                  <div style="font-weight:600">${esc(c.candidate_name)}</div>
-                  ${(c.program || c.year) ? `
-                    <div style="font-size:12px;color:var(--g400)">
-                      ${c.program ? esc(c.program) : ''}
-                      ${c.program && c.year ? ' · ' : ''}
-                      Year: ${c.year ? esc(c.year) : ''}
-                    </div>
-                  ` : ''}
-                </div>
+                <div style="flex:1;font-weight:600">${esc(c.candidate_name)}${c.party_affiliation ? ` <span style="font-weight:400;color:var(--g400);font-size:12px">· ${esc(c.party_affiliation)}</span>` : ''}</div>
                 <div style="font-weight:700;color:${c.is_winner ? 'var(--gold)' : 'var(--navy)'};">${c.vote_count} <span style="font-size:12px;font-weight:400;color:var(--g400)">(${c.percentage}%)</span></div>
               </div>
               <div class="vote-bar"><div class="vote-fill${c.is_winner ? ' winner' : ''}" style="width:${c.percentage}%"></div></div>

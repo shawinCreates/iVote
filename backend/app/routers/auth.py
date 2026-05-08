@@ -29,7 +29,7 @@ _MAX_ATTEMPTS = 5       # max failures per window
 _WINDOW_SEC   = 300       # 5-minute window
 
 _PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
-_SAFE_TU_RE = re.compile(r'^\d+-\d+-\d+-\d+$')
+_SAFE_TU_RE = re.compile(r'^\d+-\d+-\d+-\d+-\d+$')
 
 
 def _check_rate_limit(ip: str) -> None:

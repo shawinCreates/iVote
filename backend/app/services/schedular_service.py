@@ -5,9 +5,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
-from app.db.models import Election, ElectionStatus, Notification, User, UserRole
+from app.db.models import Election, ElectionStatus, Notification, User, UserRole, VoterParticipation
 from app.services.audit_notification_service import _audit, _notify
 from app.core.crypto import generate_keypair, pub_to_json, priv_to_json, fingerprint
+from app.services.he_tally_service import _run_he_tally
 
 
 def _now() -> datetime:
@@ -55,17 +56,30 @@ def tick():
                                      f"Apply for candidacy before {nom_end.strftime('%d %b %Y %H:%M')}.",
                                      "info", el.id)
 
-            # Lock candidates when nomination closes
-            if (el.status == ElectionStatus.NOMINATION_OPEN
-                    and nom_end and now >= nom_end
-                    and not el.candidates_locked):
+            # NOMINATION_OPEN → NOMINATION_CLOSED (when nomination_end passes)
+            if el.status == ElectionStatus.NOMINATION_OPEN and nom_end and now >= nom_end:
+                el.status = ElectionStatus.NOMINATION_CLOSED
                 el.candidates_locked = True
-                _audit(db, "CANDIDATES_LOCKED", None, actor_role="system",
+                _audit(db, "ELECTION_STATUS_CHANGED", None, actor_role="system",
                        election_id=el.id,
-                       details=f"Candidate list locked automatically at nomination close for '{el.name}'")
+                       details=f"'{el.name}' → NOMINATION_CLOSED · candidate list locked")
+                _notify_all_students(db, f"Nominations Closed — {el.name}",
+                                     f"The nomination period for '{el.name}' has ended. "
+                                     f"Voting opens on {vote_start.strftime('%d %b %Y %H:%M')}.",
+                                     "info", el.id)
 
-            # NOMINATION_OPEN → VOTING_OPEN: generate HE keys
-            if el.status == ElectionStatus.NOMINATION_OPEN and vote_start and now >= vote_start:
+            # NOMINATION_CLOSED → VOTING_OPEN (when voting_start passes): generate HE keys
+            if el.status == ElectionStatus.NOMINATION_CLOSED and vote_start and now >= vote_start:
+                # Snapshot total eligible voters for historical records
+                el.elegible_voters = (
+                    db.query(User)
+                    .filter(
+                        User.is_verified == True,
+                        User.is_active == True,
+                        User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
+                    )
+                    .count()
+                )
                 try:
                     pk, sk = generate_keypair(n_bits=2048)
                     el.he_public_key_json   = pub_to_json(pk)
@@ -85,10 +99,25 @@ def tick():
 
             # VOTING_OPEN → CLOSED
             if el.status == ElectionStatus.VOTING_OPEN and vote_end and now >= vote_end:
+                # Historical turnout snapshot
+                el.turnout_voters = (
+                    db.query(VoterParticipation)
+                    .filter(VoterParticipation.election_id == el.id)
+                    .count()
+                )
                 el.status = ElectionStatus.CLOSED
+                db.flush()
                 _audit(db, "ELECTION_STATUS_CHANGED", None, actor_role="system",
                        election_id=el.id,
                        details=f"'{el.name}' → CLOSED · ready for tally")
+                try:
+                    _run_he_tally(db, el)
+                    el.he_tally_completed = True
+                except Exception as e:
+                    _audit(db, "HE_TALLY_FAILED", None, actor_role="system",
+                        election_id=el.id,
+                        details=str(e))
+                    
                 _notify_all_students(db, f"Voting Closed — {el.name}",
                                      f"Voting for '{el.name}' has ended. "
                                      f"Results will be published soon.",
@@ -104,7 +133,7 @@ def tick():
 
 def start():
     scheduler = BackgroundScheduler(timezone="UTC")
-    scheduler.add_job(tick, "interval", seconds=1, id="election_tick",
+    scheduler.add_job(tick, "interval", seconds=60, id="election_tick",
                       replace_existing=True)
     scheduler.start()
     print("[Scheduler] Election lifecycle scheduler started.")
