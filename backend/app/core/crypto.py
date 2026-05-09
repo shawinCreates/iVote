@@ -39,7 +39,7 @@ def priv_from_json(s: str, pk: PaillierPublicKey) -> PaillierPrivateKey:
 
 # Convert an EncryptedNumber to a plain dict for JSON storage.
 def enc_to_dict(e: EncryptedNumber) -> dict:
-    return {"c": str(e.ciphertext())}
+    return {"c": str(e.ciphertext)}
 
 # Reconstruct an EncryptedNumber from a stored dict.
 def enc_from_dict(d: dict, pk: PaillierPublicKey) -> EncryptedNumber:

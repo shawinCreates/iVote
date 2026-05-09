@@ -93,7 +93,7 @@ class Election(Base):
     he_private_key_json = Column(Text, nullable=True)
     he_key_fingerprint = Column(String(64), nullable=True)  
     he_tally_completed = Column(Boolean, nullable=False, default=False)
-    elegible_voters = Column(Integer, nullable=True)
+    eligible_voters = Column(Integer, nullable=True)
     turnout_voters = Column(Integer, nullable=True)
 
     creator = relationship("User", foreign_keys=[created_by])

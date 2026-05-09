@@ -147,6 +147,7 @@
                 <div style="flex:1;font-weight:600">${esc(c.candidate_name)}${c.party_affiliation ? ` <span style="font-weight:400;color:var(--g400);font-size:12px">· ${esc(c.party_affiliation)}</span>` : ''}</div>
                 <div style="font-weight:700;color:${c.is_winner ? 'var(--gold)' : 'var(--navy)'};">${c.vote_count} <span style="font-size:12px;font-weight:400;color:var(--g400)">(${c.percentage}%)</span></div>
               </div>
+              ${(()=>{const p=[];if(c.faculty)p.push(esc(c.faculty));if(c.program)p.push(esc(c.program));if(c.year)p.push('Year '+esc(c.year));if(c.semester)p.push('Sem '+c.semester);return p.length?`<div style="font-size:11px;color:var(--g400);margin-left:31px;margin-top:-3px;margin-bottom:5px">${p.join(' · ')}</div>`:''})()}
               <div class="vote-bar"><div class="vote-fill${c.is_winner ? ' winner' : ''}" style="width:${c.percentage}%"></div></div>
             </div>`).join('')}
           </div>

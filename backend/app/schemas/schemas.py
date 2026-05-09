@@ -161,8 +161,10 @@ class CandidateResult(BaseModel):
     vote_count: int
     percentage: float
     is_winner: bool
+    faculty: Optional[str]
     program: Optional[str]
     year: Optional[str]
+    semester: Optional[int]
 
 class PositionResult(BaseModel):
     position_id: int

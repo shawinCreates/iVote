@@ -84,9 +84,7 @@ def create_election(db: Session, data: ElectionIn, admin_id: int) -> Election:
             max_votes=pos.max_votes,
         ))
 
-    _audit(db, "ELECTION_CREATED", admin_id,
-           election_id=election.id,
-           details=f"Created election: {data.name}")
+    _audit(db, "ELECTION_CREATED", admin_id, actor_role="admin", election_id=election.id, details=f"Created election: {data.name}")
     db.commit()
     db.refresh(election)
     return election

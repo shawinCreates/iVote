@@ -113,7 +113,7 @@ async function loadPage() {
 
 <tbody>${mine.map(c=>{
   const election = elections.find(e=>e.id===c.election_id);
-  const isPublished = election && election.status==='result_published';
+  const isPublished = election && election.status==='results_published';
 
   return `<tr>
     <td><strong>${c.position?e(c.position.name):'Position #'+c.position_id}</strong></td>
@@ -134,8 +134,10 @@ async function loadPage() {
     <td style="font-size:13px">
       ${
         isPublished
-          ? (c.votes_received ?? 0)
-          : '<span style="color:var(--g400)">Results not declared</span>'
+          ? `<strong style="color:var(--navy)">${c.votes_received ?? 0}</strong>`
+          : election && ['closed','nomination_closed','nomination_open','voting_open','draft'].includes(election.status)
+            ? '<span style="color:var(--g400);font-size:12px">Pending</span>'
+            : '<span style="color:var(--g400);font-size:12px">—</span>'
       }
     </td>
 

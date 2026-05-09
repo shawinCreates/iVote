@@ -24,7 +24,6 @@
   <div class="modal" style="max-width:680px">
     <div class="modal-hd"><div class="modal-title">Create New Election</div><button class="modal-close">✕</button></div>
     <div class="modal-body">
-      <div id="form-errors" class="alert alert-danger" style="display:none;margin-bottom:16px"></div>
       <div class="form-group"><label class="form-label">Election Name <span class="req">*</span></label><input class="form-control" id="e-name" placeholder="e.g. Student Union Election 2025"></div>
       <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" id="e-desc" rows="2" placeholder="Brief description…"></textarea></div>
       <div class="grid-2">
@@ -39,14 +38,8 @@
         <label class="form-label">Positions</label>
         <div id="positions-list">
           <div class="pos-row" style="display:flex;gap:10px;margin-bottom:10px;align-items:center">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label" style="font-size:12px">Title <span class="req">*</span></label>
-              <input type="text" class="form-control" name="pos-name" placeholder="e.g. President">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label" style="font-size:12px">Max Winners</label>
-              <input type="number" class="form-control" name="pos-max" value="1" min="1" max="10">
-            </div>
+            <input class="form-control" placeholder="Position name (e.g. President)" style="flex:2">
+            <input class="form-control" type="number" min="1" max="10" value="1" style="flex:0 0 80px" title="Max winners">
             <button onclick="this.closest('.pos-row').remove()" style="background:none;border:none;color:var(--crimson);cursor:pointer;font-size:18px;flex-shrink:0">✕</button>
           </div>
         </div>
@@ -75,12 +68,12 @@ async function createElection() {
   }).filter(p=>p.name);
   if (!positions.length) { iVote.showAlert('Add at least one position','warning'); return; }
   const data = {
-    name:             document.getElementById('e-name').value.trim(),
-    description:      document.getElementById('e-desc').value.trim()||null,
+    name: document.getElementById('e-name').value.trim(),
+    description: document.getElementById('e-desc').value.trim()||null,
     nomination_start: document.getElementById('e-nom-start').value,
-    nomination_end:   document.getElementById('e-nom-end').value,
-    voting_start:     document.getElementById('e-vote-start').value,
-    voting_end:       document.getElementById('e-vote-end').value,
+    nomination_end: document.getElementById('e-nom-end').value,
+    voting_start: document.getElementById('e-vote-start').value,
+    voting_end: document.getElementById('e-vote-end').value,
     positions
   };
   if (!data.name||!data.nomination_start||!data.voting_start) { iVote.showAlert('Please fill all required fields','warning'); return; }
@@ -114,7 +107,7 @@ async function loadElections() {
       </div>
       <div class="card-body">
         <div class="phase-bar">
-          <div class="phase-step ${['nomination_open', 'nomination_closed' ,'voting_open','closed','results_published'].includes(el.status)?'done':''}">
+          <div class="phase-step ${['nomination_open','voting_open','closed','results_published'].includes(el.status)?'done':''}">
             <div class="phase-step-lbl">Nominations</div>
             <div class="phase-step-date">${iVote.fmtDateTime(el.nomination_start)} – ${iVote.fmtDateTime(el.nomination_end)}</div>
           </div>
@@ -124,10 +117,12 @@ async function loadElections() {
           </div>
           <div class="phase-step ${el.status==='results_published'?'active':''}">
             <div class="phase-step-lbl">Results</div>
-            <div class="phase-step-date">${el.results_published_at?iVote.fmtDateTime(el.results_published_at):'Pending'}
+            <div class="phase-step-date">${el.results_published_at?iVote.fmtDateTime(el.results_published_at):'Pending'}</div>
           </div>
         </div>
+        <div style="font-size:13px;margin-top:10px"><strong>Positions:</strong> ${el.positions.map(p=>esc(p.name)+` (max ${p.max_votes})`).join(', ')}</div>
         <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          ${el.status==='nomination_open'&&!el.candidates_locked?`<button class="btn btn-sm btn-outline" onclick="lockCands(${el.id})">Lock Candidates</button>`:''}
           ${el.status==='closed'&&el.he_tally_completed?`<button class="btn btn-sm btn-primary" onclick="publishResults(${el.id})">Publish Results</button>`:''}
           ${el.status==='closed'&&!el.he_tally_completed?`<div class="badge badge-pending" style="padding:6px 12px">Tally in progress…</div>`:''}
           ${['closed','results_published'].includes(el.status)?`<a href="/admin/results?id=${el.id}" class="btn btn-sm btn-gold">View Results</a>`:''}

@@ -87,6 +87,7 @@ function renderResults(r) {
             <div style="font-size:30px;margin-bottom:8px"></div>
             <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700">${e(w.candidate_name)}</div>
             <div style="font-size:12px;color:var(--crimson);font-weight:600;margin-top:3px">${e(w._pos)}</div>
+            ${(()=>{const p=[];if(w.faculty)p.push(e(w.faculty));if(w.program)p.push(e(w.program));if(w.year)p.push('Year '+e(w.year));if(w.semester)p.push('Sem '+w.semester);return p.length?`<div style="font-size:11px;color:var(--g400);margin-top:3px">${p.join(' · ')}</div>`:''})()}
             <div style="font-size:12px;color:var(--g400);margin-top:4px">${w.vote_count} votes (${w.percentage}%)</div>
           </div>`).join('')}
         </div>
@@ -114,6 +115,7 @@ function renderResults(r) {
                 <div style="flex:1;font-weight:600;color:var(--navy)">${e(c.candidate_name)}${c.party_affiliation?` <span style="font-weight:400;color:var(--g400);font-size:12px">· ${e(c.party_affiliation)}</span>`:''}</div>
                 <div style="font-weight:700;color:${c.is_winner?'var(--gold)':'var(--navy)'};">${c.vote_count} <span style="font-size:12px;font-weight:400;color:var(--g400)">(${c.percentage}%)</span></div>
               </div>
+              ${(()=>{const p=[];if(c.faculty)p.push(e(c.faculty));if(c.program)p.push(e(c.program));if(c.year)p.push('Year '+e(c.year));if(c.semester)p.push('Sem '+c.semester);return p.length?`<div style="font-size:11px;color:var(--g400);margin-left:31px;margin-top:-3px;margin-bottom:5px">${p.join(' · ')}</div>`:''})()}
               <div class="vote-bar"><div class="vote-fill${c.is_winner?' winner':''}" style="width:${c.percentage}%"></div></div>
             </div>`).join('')}
           </div>
