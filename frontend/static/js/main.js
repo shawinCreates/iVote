@@ -19,6 +19,18 @@ function esc(str) {
     .replace(/'/g, '&#x27;');
 }
 
+/**
+ * Resolve a stored photo path to a usable URL.
+ * - Cloudinary (production): path is already https://... → use as-is
+ * - Local (development):     path is uploads/... → prepend /
+ * - Null / undefined:        return fallback avatar
+ */
+function photoUrl(path, fallback = '/static/images/default_avatar.jpg') {
+  if (!path) return fallback;
+  if (path.startsWith('http')) return path;
+  return '/' + path;
+}
+
 /* ── Core API call ───────────────────────────────────────────── */
 async function api(path, opts = {}) {
   const headers = {};
@@ -188,7 +200,7 @@ function initSidebar() {
   if (avEl) {
     if (u.profile_photo_path) {
       const img = document.createElement('img');
-      img.src = '/' + u.profile_photo_path;
+      img.src = photoUrl(u.profile_photo_path);
       img.alt = u.full_name || '';
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
       img.onerror = () => { avEl.removeChild(img); avEl.textContent = (u.full_name?.[0] || '?').toUpperCase(); };
@@ -343,6 +355,6 @@ window.iVote = {
   openModal, closeModal,
   fmtDate, fmtDateTime, timeRemaining,
   statusBadge, approvalBadge,
-  esc,
+  esc, photoUrl,
   Paillier,
 };

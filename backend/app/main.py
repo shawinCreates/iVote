@@ -30,7 +30,12 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "frontend" / "static")), name="static")
-app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
+
+# Only mount local uploads folder in development.
+# In production (Cloudinary), files are served via URL — no local folder exists.
+_uploads_dir = BASE_DIR / "uploads"
+if _uploads_dir.exists():
+    app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 

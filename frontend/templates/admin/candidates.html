@@ -183,7 +183,7 @@ function render(){
     <tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
-          <img src="${c.photo_path ? '/' + c.photo_path : '/static/images/default_avatar.jpg'}"
+          <img src="${c.photo_path ? iVote.photoUrl(c.photo_path) : '/static/images/default_avatar.jpg'}"
                style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"
                onerror="this.onerror=null;this.src='/static/images/default_avatar.jpg'">
           <div>
@@ -215,7 +215,7 @@ function openProfile(id){
 
   document.getElementById('profile-body').innerHTML = `
     <div style="display:flex;gap:14px;align-items:flex-start">
-      <img src="${c.photo_path ? '/' + c.photo_path : '/static/images/default_avatar.jpg'}"
+      <img src="${c.photo_path ? iVote.photoUrl(c.photo_path) : '/static/images/default_avatar.jpg'}"
            style="width:90px;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--border)"
            onerror="this.onerror=null;this.src='/static/images/default_avatar.jpg'">
       <div>
@@ -237,7 +237,7 @@ function openProfile(id){
     ${c.user?.id_card_path ? `
     <div style="margin-top:14px">
       <div style="font-weight:700;margin-bottom:6px">ID Card</div>
-      <img src="/${c.user.id_card_path}"
+      <img src="${iVote.photoUrl(c.user.id_card_path)}"
            style="max-width:100%;border-radius:10px;border:1px solid var(--border)"
            onerror="this.onerror=null;this.style.display='none'">
     </div>` : ''}

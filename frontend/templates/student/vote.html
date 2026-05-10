@@ -348,10 +348,12 @@
           <div class="cand-grid">
             ${cands.map(c => `
             <div class="cand-card" id="vc-${pos.id}-${c.id}" onclick="selectCand(${pos.id},${c.id},${isMulti},${pos.max_votes})">
-              <div class="cand-photo">${c.photo_path ? `<img src="/${e(c.photo_path)}" onerror="this.style.display='none'">` : `<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
+              <div class="cand-photo">${c.photo_path ? `<img src="${iVote.photoUrl(c.photo_path)}" onerror="this.style.display='none'">` : `<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
               <div class="cand-body">
                 <div class="cand-name">${e(c.user.full_name)}</div>
-                <div class="cand-party">${e(c.party_affiliation || 'Independent')}</div>
+                <div class="cand-faculty">${e(c.user.faculty)}</div>
+                <div class="cand-program">${e(c.user.program)}</div>
+                <div class="cand-year">Year ${e(c.user.year)} ${c.user.semester?'· Semester '+c.user.semester:''}</div>
                 <div class="cand-manifesto">${e((c.manifesto || '').substring(0, 100))}${(c.manifesto || '').length > 100 ? '…' : ''}</div>
                 <div class="cand-select-btn" id="vbtn-${pos.id}-${c.id}">Click to Select</div>
               </div>

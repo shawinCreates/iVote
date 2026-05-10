@@ -110,7 +110,7 @@ function renderCands(data) {
       <div class="cand-grid">
         ${grp.items.map(c=>`
         <div class="cand-card" onclick="viewCand(${c.id})">
-          <div class="cand-photo">${c.photo_path?`<img src="/${e(c.photo_path)}" alt="${e(c.user.full_name)}" onerror="this.style.display='none'">`:`<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
+          <div class="cand-photo">${c.photo_path?`<img src="${iVote.photoUrl(c.photo_path)}" alt="${e(c.user.full_name)}" onerror="this.style.display='none'">`:`<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
           <div class="cand-body">
             <div class="cand-name">${e(c.user.full_name)}</div>
             <div class="cand-pos">${e(posName)}</div>
@@ -143,7 +143,7 @@ function viewCand(candId) {
   photoWrap.style.cssText = 'width:100px;height:120px;border-radius:12px;background:linear-gradient(135deg,var(--navy),var(--navy-mid));overflow:hidden;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;flex-shrink:0';
   if (c.photo_path) {
     const img = document.createElement('img');
-    img.src = '/' + c.photo_path;
+    img.src = iVote.photoUrl(c.photo_path);
     img.style.cssText = 'width:100%;height:100%;object-fit:cover';
     img.onerror = () => { photoWrap.textContent = c.user.full_name[0]; };
     photoWrap.appendChild(img);
