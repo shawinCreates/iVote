@@ -136,6 +136,11 @@ class EncBallotIn(BaseModel):
     candidate_ids: List[int] 
     encrypted_ballot_json: str
 
+class FaceVerifyIn(BaseModel):
+    live_image_b64: str                        # base64 JPEG/PNG — the face-match frame
+    liveness_frames: list[str] = []            # sequence of frames for blink detection
+
+
 class HEBallotIn(BaseModel):
     election_id: int
     positions: List[EncBallotIn]

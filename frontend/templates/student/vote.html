@@ -18,7 +18,81 @@
   </div>
 </div>
 
-<!-- Confirm Modal -->
+<!-- ═══════════════════════════════════════════════════════════════
+     FACE VERIFICATION MODAL
+     Shown before the ballot. Closes only on success or max retries.
+════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="face-modal" style="display:none;z-index:1100">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hd">
+      <div class="modal-title"> Identity Verification</div>
+    </div>
+    <div class="modal-body" style="text-align:center">
+
+      <!-- Step 1: instructions -->
+      <div id="fv-step-intro">
+        <p style="color:var(--g600);margin-bottom:6px">
+          Before you can vote, we need to confirm your identity using your
+          registered profile photo.
+        </p>
+        <ul style="text-align:left;color:var(--g600);font-size:13px;margin:14px 0 20px;line-height:2">
+          <li>Sit in a <strong>well-lit</strong> area</li>
+          <li>Look <strong>directly</strong> at the camera</li>
+          <li>Remove glasses or hats if possible</li>
+        </ul>
+        <button class="btn btn-primary" onclick="fv.startCamera()"> Open Camera</button>
+      </div>
+
+      <!-- Step 2: live camera -->
+      <div id="fv-step-camera" style="display:none">
+        <div style="position:relative;display:inline-block;width:100%;margin-bottom:14px">
+          <video id="fv-video" autoplay playsinline muted
+            style="width:100%;border-radius:12px;border:3px solid var(--navy);max-height:300px;object-fit:cover;display:block"></video>
+          <!-- Liveness instruction overlay — shown during frame capture -->
+          <div id="fv-liveness-msg" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+            background:rgba(0,0,0,0.65);color:#fff;font-size:14px;font-weight:600;
+            padding:6px 16px;border-radius:20px;white-space:nowrap;pointer-events:none"></div>
+        </div>
+        <p style="font-size:12px;color:var(--g400);margin-bottom:8px">
+          When you click Verify, look at the camera and <strong>blink once</strong> when prompted.
+        </p>
+        <div id="fv-attempts" style="font-size:12px;color:var(--g400);margin-bottom:12px"></div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-outline" onclick="fv.stopCamera()">Cancel</button>
+          <button class="btn btn-primary" id="fv-capture-btn" onclick="fv.capture()">Verify My Face</button>
+        </div>
+      </div>
+
+      <!-- Step 3: processing -->
+      <div id="fv-step-processing" style="display:none">
+        <div style="font-weight:600;margin-bottom:6px">Analysing…</div>
+        <div style="font-size:13px;color:var(--g400)">Comparing with your registered profile photo</div>
+      </div>
+
+      <!-- Step 4: error / retry -->
+      <div id="fv-step-error" style="display:none">
+        <div id="fv-error-msg" style="font-weight:600;color:var(--crimson);margin-bottom:8px"></div>
+        <div id="fv-retry-hint" style="font-size:13px;color:var(--g400);margin-bottom:18px"></div>
+        <button class="btn btn-primary" id="fv-retry-btn" onclick="fv.retry()">↩ Try Again</button>
+      </div>
+
+      <!-- Step 5: hard failure (max retries exceeded) -->
+      <div id="fv-step-blocked" style="display:none">
+        <div style="font-weight:700;color:var(--crimson);margin-bottom:8px">Verification Failed</div>
+        <div style="font-size:13px;color:var(--g600);margin-bottom:18px">
+          Identity could not be confirmed after multiple attempts.
+          Please contact the Election Head if you believe this is an error.
+        </div>
+        <a href="/student/dashboard" class="btn btn-navy">← Dashboard</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BALLOT CONFIRM MODAL  (unchanged)
+════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="confirm-modal">
   <div class="modal" style="max-width:540px">
     <div class="modal-hd">
@@ -30,10 +104,8 @@
         <strong>This action is irreversible.</strong> Once submitted, your vote is final and cannot be changed.
       </div>
       <div id="ballot-summary"></div>
-      <div
-        style="margin-top:16px;padding:12px 14px;background:rgba(41,128,185,.08);border-radius:10px;border-left:3px solid var(--info)">
-        <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:3px"> Paillier Homomorphic Encryption
-        </div>
+      <div style="margin-top:16px;padding:12px 14px;background:rgba(41,128,185,.08);border-radius:10px;border-left:3px solid var(--info)">
+        <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:3px"> Paillier Homomorphic Encryption</div>
         <div style="font-size:12px;color:var(--g600);line-height:1.5">Your ballot is being <strong>encrypted in your
             browser</strong> right now using the election's public key. The server will only ever receive ciphertexts —
           your choices are mathematically hidden until the final tally is decrypted.</div>
@@ -48,78 +120,213 @@
 
 <script>
   let election = null;
-  let selections = {};          // position_id → [candidate_id, ...]
-  let hePublicKeyN = null;      // Paillier n as string
-  let positionCandidates = {};  // position_id → [{id,name,...}]
+  let selections = {};
+  let hePublicKeyN = null;
+  let positionCandidates = {};
 
+  // ─────────────────────────────────────────────────────────────────
+  // FACE VERIFICATION STATE MACHINE
+  // ─────────────────────────────────────────────────────────────────
+  const MAX_RETRIES = 3;
+
+  const fv = {
+    stream: null,
+    attempts: 0,
+
+    show(stepId) {
+      ['fv-step-intro','fv-step-camera','fv-step-processing','fv-step-error','fv-step-blocked']
+        .forEach(id => document.getElementById(id).style.display = id === stepId ? '' : 'none');
+    },
+
+    open() {
+      document.getElementById('face-modal').style.display = 'flex';
+      this.attempts = 0;
+      this.show('fv-step-intro');
+    },
+
+    async startCamera() {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        document.getElementById('fv-video').srcObject = this.stream;
+        this.updateAttemptsLabel();
+        this.show('fv-step-camera');
+      } catch(e) {
+        alert('Camera access denied. Please allow camera access and reload the page.');
+      }
+    },
+
+    stopCamera() {
+      this.stream?.getTracks().forEach(t => t.stop());
+      this.stream = null;
+      this.show('fv-step-intro');
+    },
+
+    updateAttemptsLabel() {
+      const remaining = MAX_RETRIES - this.attempts;
+      document.getElementById('fv-attempts').textContent =
+        this.attempts > 0
+          ? `Attempt ${this.attempts + 1} of ${MAX_RETRIES} — ${remaining} remaining`
+          : `You have ${MAX_RETRIES} attempts`;
+    },
+
+    async capture() {
+      const video   = document.getElementById('fv-video');
+      const overlay = document.getElementById('fv-liveness-msg');
+
+      // ── Collect 8 frames over 2.5 s while prompting a blink ──
+      const FRAME_COUNT    = 8;
+      const FRAME_INTERVAL = 320;   // ms between frames
+
+      overlay.style.display = 'block';
+      overlay.textContent   = 'Keep still…';
+
+      const frames = [];
+      for (let i = 0; i < FRAME_COUNT; i++) {
+        // Update prompt at the midpoint to ask for a blink
+        if (i === 3) overlay.textContent = '👁 Blink now!';
+        if (i === 6) overlay.textContent = 'Almost done…';
+
+        const canvas  = document.createElement('canvas');
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        frames.push(canvas.toDataURL('image/jpeg', 0.80));
+
+        await new Promise(r => setTimeout(r, FRAME_INTERVAL));
+      }
+
+      overlay.style.display = 'none';
+
+      // Stop stream before server call
+      this.stream?.getTracks().forEach(t => t.stop());
+      this.stream = null;
+
+      this.show('fv-step-processing');
+      this.attempts++;
+
+      try {
+        const res = await fetch('/api/voting/verify-face', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + iVote.store.getToken(),
+          },
+          body: JSON.stringify({ live_image_b64: frames[4], liveness_frames: frames }),
+        });
+
+        if (res.ok) {
+          // Verified — close modal and show ballot
+          document.getElementById('face-modal').style.display = 'none';
+          loadBallot();
+          return;
+        }
+
+        const err = await res.json();
+        const detail = err.detail || {};
+        const reason  = detail.reason  || 'unknown';
+        const message = detail.message || 'Verification failed. Please try again.';
+
+        if (this.attempts >= MAX_RETRIES || reason === 'face_mismatch_final') {
+          this.show('fv-step-blocked');
+          return;
+        }
+
+        // Show retry screen
+        document.getElementById('fv-error-msg').textContent = message;
+        document.getElementById('fv-retry-hint').textContent =
+          `${MAX_RETRIES - this.attempts} attempt${MAX_RETRIES - this.attempts !== 1 ? 's' : ''} remaining`;
+        this.show('fv-step-error');
+
+      } catch(e) {
+        document.getElementById('fv-error-msg').textContent = 'Network error. Please check your connection.';
+        document.getElementById('fv-retry-hint').textContent = '';
+        this.show('fv-step-error');
+      }
+    },
+
+    retry() {
+      if (this.attempts >= MAX_RETRIES) {
+        this.show('fv-step-blocked');
+        return;
+      }
+      this.startCamera();
+    },
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // VOTE PAGE INIT — runs face gate first, then ballot
+  // ─────────────────────────────────────────────────────────────────
   async function loadVote() {
     const cont = document.getElementById('vote-container');
     try {
       const elections = await iVote.$.elections.all();
       election = elections.find(e => e.status === 'voting_open');
+
       if (!election) {
-        cont.innerHTML = `<div class="empty"><div class="empty-title">No active election</div><div class="empty-text">There is no election open for voting right now.</div><a href="/student/dashboard" class="btn btn-navy" style="margin-top:20px">← Dashboard</a></div>`;
+        cont.innerHTML = `<div class="empty"><div class="empty-title">No active election</div>
+          <div class="empty-text">There is no election open for voting right now.</div>
+          <a href="/student/dashboard" class="btn btn-navy" style="margin-top:20px">← Dashboard</a></div>`;
         return;
       }
+
       const voted = await iVote.$.elections.hasVoted(election.id);
       if (voted.has_voted) {
         cont.innerHTML = `<div class="vote-success">
-        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800;color:var(--navy);margin-bottom:8px">You Have Already Voted!</h2>
-        <p style="color:var(--g600);margin-bottom:16px">Your encrypted vote is final and anonymous.</p>
-        <div style="font-size:13px;color:var(--g400);margin-bottom:6px">Your confirmation code:</div>
-        <div class="confirm-code">${voted.confirmation_code || 'VT-XXXXXXXX'}</div>
-        <div style="font-size:13px;color:var(--g400);margin-top:8px">Voted: ${iVote.fmtDate(voted.voted_at)}</div>
-        <div style="margin-top:26px;display:flex;gap:14px;justify-content:center">
-          <a href="/student/results" class="btn btn-gold">View Results When Published</a>
-          <a href="/student/dashboard" class="btn btn-navy">← Dashboard</a>
-        </div>
-      </div>`;
+          <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800;color:var(--navy);margin-bottom:8px">You Have Already Voted!</h2>
+          <p style="color:var(--g600);margin-bottom:16px">Your encrypted vote is final and anonymous.</p>
+          <div style="font-size:13px;color:var(--g400);margin-bottom:6px">Your confirmation code:</div>
+          <div class="confirm-code">${voted.confirmation_code || 'VT-XXXXXXXX'}</div>
+          <div style="font-size:13px;color:var(--g400);margin-top:8px">Voted: ${iVote.fmtDate(voted.voted_at)}</div>
+          <div style="margin-top:26px;display:flex;gap:14px;justify-content:center">
+            <a href="/student/results" class="btn btn-gold">View Results When Published</a>
+            <a href="/student/dashboard" class="btn btn-navy">← Dashboard</a>
+          </div></div>`;
         return;
       }
-      // Fetch HE public key — required for HE-only voting
-      try {
-  const hePk = await iVote.$.elections.heKey(election.id);
 
-  hePublicKeyN = JSON.parse(hePk.public_key_json).n;
+      // Open face verification gate before showing the ballot
+      fv.open();
 
-  const fp = document.getElementById('he-fingerprint');
-
-  if (fp) {
-    fp.textContent = `Key fingerprint: …${hePk.fingerprint}`;
+    } catch (e) {
+      cont.innerHTML = `<div class="empty"><div class="empty-icon"></div><div class="empty-title">Error loading ballot</div></div>`;
+    }
   }
 
-} catch (e) {
+  // Called only after face verification succeeds
+  async function loadBallot() {
+    const cont = document.getElementById('vote-container');
+    try {
+      // Fetch HE public key
+      try {
+        const hePk = await iVote.$.elections.heKey(election.id);
+        hePublicKeyN = JSON.parse(hePk.public_key_json).n;
+        const fp = document.getElementById('he-fingerprint');
+        if (fp) fp.textContent = `Key fingerprint: …${hePk.fingerprint}`;
+      } catch (e) {
+        cont.innerHTML = `<div class="empty">
+          <div class="empty-title">Encryption keys not ready</div>
+          <div class="empty-text">The election encryption keys are being prepared. Please refresh in a moment.</div>
+          <button class="btn btn-navy" style="margin-top:20px" onclick="loadVote()">⟳ Refresh</button></div>`;
+        return;
+      }
 
-  console.error("HE key load failed:", e);
-
-  cont.innerHTML = `
-    <div class="empty">
-      <div class="empty-title">Encryption keys not ready</div>
-      <div class="empty-text">
-        The election encryption keys are being prepared.
-        Please refresh in a moment.
-      </div>
-      <button class="btn btn-navy"
-              style="margin-top:20px"
-              onclick="loadVote()">⟳ Refresh</button>
-    </div>`;
-
-  return;
-}
       // Build ballot UI
       const e = iVote.esc;
-      let html = `<div style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-radius:16px;padding:24px 28px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:20px">
-      <div>
-        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:white">${e(election.name)}</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:4px">Review all positions below, then submit your ballot</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold)">${iVote.timeRemaining(election.voting_end)}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px">Remaining</div>
-        <div style="margin-top:8px"><span class="he-badge"> Paillier HE Active</span></div>
-      </div>
-    </div>
-    <div class="alert alert-info" style="margin-bottom:22px"> Your ballot will be <strong>encrypted in your browser</strong> before transmission. The server stores only ciphertexts — your choices are never seen in plain text.</div>`;
+      let html = `
+        <div style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-radius:16px;padding:24px 28px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:20px">
+          <div>
+            <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:white">${e(election.name)}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:4px">Review all positions below, then submit your ballot</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold)">${iVote.timeRemaining(election.voting_end)}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px">Remaining</div>
+            <div style="margin-top:8px"><span class="he-badge"> Paillier HE Active</span></div>
+          </div>
+        </div>
+        <div class="alert alert-info" style="margin-bottom:22px">
+          <strong>Identity verified.</strong> Your ballot will be <strong>encrypted in your browser</strong> before transmission.
+        </div>`;
 
       let posIdx = 0;
       for (const pos of election.positions) {
@@ -130,39 +337,49 @@
         positionCandidates[pos.id] = cands;
         const isMulti = pos.max_votes > 1;
         html += `<div class="pos-section" id="ps-${pos.id}">
-        <div class="pos-header">
-          <div class="pos-num">${posIdx}</div>
-          <div style="flex:1">
-            <div class="pos-name">${e(pos.name)}</div>
-            <div class="pos-sub">${isMulti ? `Select up to ${pos.max_votes} candidates` : 'Select 1 candidate'}</div>
-          </div>
-          <div class="pos-status" id="pstat-${pos.id}"><span class="pos-chip empty">Not selected</span></div>
-        </div>
-        <div class="cand-grid">
-          ${cands.map(c => `
-          <div class="cand-card" id="vc-${pos.id}-${c.id}" onclick="selectCand(${pos.id},${c.id},${isMulti},${pos.max_votes})">
-            <div class="cand-photo">${c.photo_path ? `<img src="/${e(c.photo_path)}" onerror="this.style.display='none'">` : `<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
-            <div class="cand-body">
-              <div class="cand-name">${e(c.user.full_name)}</div>
-              <div class="cand-faculty">${e(c.user.faculty)}</div>
-            <div class="cand-program">${e(c.user.program)}</div>
-            <div class="cand-year">Year ${e(c.user.year)} ${c.user.semester?'· Semester '+c.user.semester:''}</div>
-              <div class="cand-manifesto">${e((c.manifesto || '').substring(0, 100))}${(c.manifesto || '').length > 100 ? '…' : ''}</div>
-              <div class="cand-select-btn" id="vbtn-${pos.id}-${c.id}">Click to Select</div>
+          <div class="pos-header">
+            <div class="pos-num">${posIdx}</div>
+            <div style="flex:1">
+              <div class="pos-name">${e(pos.name)}</div>
+              <div class="pos-sub">${isMulti ? `Select up to ${pos.max_votes} candidates` : 'Select 1 candidate'}</div>
             </div>
-          </div>`).join('')}
-        </div>
-      </div>`;
+            <div class="pos-status" id="pstat-${pos.id}"><span class="pos-chip empty">Not selected</span></div>
+          </div>
+          <div class="cand-grid">
+            ${cands.map(c => `
+            <div class="cand-card" id="vc-${pos.id}-${c.id}" onclick="selectCand(${pos.id},${c.id},${isMulti},${pos.max_votes})">
+              <div class="cand-photo">${c.photo_path ? `<img src="/${e(c.photo_path)}" onerror="this.style.display='none'">` : `<span style="font-size:52px;opacity:.25">${e(c.user.full_name[0])}</span>`}</div>
+              <div class="cand-body">
+                <div class="cand-name">${e(c.user.full_name)}</div>
+                <div class="cand-party">${e(c.party_affiliation || 'Independent')}</div>
+                <div class="cand-manifesto">${e((c.manifesto || '').substring(0, 100))}${(c.manifesto || '').length > 100 ? '…' : ''}</div>
+                <div class="cand-select-btn" id="vbtn-${pos.id}-${c.id}">Click to Select</div>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>`;
       }
-      if (posIdx === 0) { cont.innerHTML = '<div class="empty"><div class="empty-title">No approved candidates yet</div></div>'; return; }
+
+      if (posIdx === 0) {
+        cont.innerHTML = '<div class="empty"><div class="empty-title">No approved candidates yet</div></div>';
+        return;
+      }
+
       html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;background:white;border-radius:14px;box-shadow:var(--shadow);margin-top:8px">
-      <div style="font-size:14px;color:var(--g600)">Review all positions above, then submit your encrypted ballot</div>
-      <button class="btn btn-primary btn-lg" onclick="reviewBallot()">Review &amp; Encrypt Ballot →</button>
-    </div>`;
+        <div style="font-size:14px;color:var(--g600)">Review all positions above, then submit your encrypted ballot</div>
+        <button class="btn btn-primary btn-lg" onclick="reviewBallot()">Review &amp; Encrypt Ballot →</button>
+      </div>`;
+
       cont.innerHTML = html;
-    } catch (e) { cont.innerHTML = `<div class="empty"><div class="empty-icon"></div><div class="empty-title">Error loading ballot</div></div>`; }
+
+    } catch (e) {
+      cont.innerHTML = `<div class="empty"><div class="empty-title">Error loading ballot</div></div>`;
+    }
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // BALLOT INTERACTION  (unchanged from original)
+  // ─────────────────────────────────────────────────────────────────
   function selectCand(posId, candId, isMulti, maxV) {
     const arr = selections[posId];
     if (isMulti) {
@@ -179,10 +396,15 @@
       if (el) el.innerHTML = '<span class="pos-chip done">✓ Selected</span>';
     }
   }
+
   function setState(posId, candId, sel) {
     document.getElementById(`vc-${posId}-${candId}`)?.classList.toggle('selected', sel);
     const btn = document.getElementById(`vbtn-${posId}-${candId}`);
-    if (btn) { btn.textContent = sel ? '✓ Selected' : 'Click to Select'; btn.style.background = sel ? 'var(--crimson)' : 'var(--g100)'; btn.style.color = sel ? 'white' : 'var(--g400)'; }
+    if (btn) {
+      btn.textContent = sel ? '✓ Selected' : 'Click to Select';
+      btn.style.background = sel ? 'var(--crimson)' : 'var(--g100)';
+      btn.style.color = sel ? 'white' : 'var(--g400)';
+    }
   }
 
   function reviewBallot() {
@@ -196,7 +418,9 @@
       const cands = positionCandidates[pos.id] || [];
       sel.forEach(cid => {
         const c = cands.find(x => x.id === cid);
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--g100)"><span style="color:var(--g400);font-size:13px">${e(pos.name)}</span><span style="font-weight:600">${c ? e(c.user.full_name) : 'Candidate #' + cid}</span></div>`;
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--g100)">
+          <span style="color:var(--g400);font-size:13px">${e(pos.name)}</span>
+          <span style="font-weight:600">${c ? e(c.user.full_name) : 'Candidate #' + cid}</span></div>`;
       });
     }
     html += `<div style="margin-top:12px;font-size:13px;color:var(--g400)">Positions without a selection will be skipped.</div>`;
@@ -209,7 +433,6 @@
     btn.disabled = true; btn.textContent = 'Encrypting…';
     iVote.showSpinner();
     try {
-      // Encrypt each position ballot in the browser
       const positions = [];
       for (const pos of election.positions) {
         const sel = selections[pos.id] || [];
@@ -225,26 +448,26 @@
       iVote.hideSpinner();
       iVote.closeModal('confirm-modal');
       document.getElementById('vote-container').innerHTML = `<div class="vote-success">
-      <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800;color:var(--navy);margin-bottom:8px">Encrypted Vote Recorded!</h2>
-      <p style="color:var(--g600);margin-bottom:16px">Your ballot was encrypted in your browser with Paillier HE before transmission. The server stored only ciphertexts — your choices are mathematically hidden.</p>
-      <div style="font-size:13px;color:var(--g400);margin-bottom:6px">Save your confirmation code:</div>
-      <div class="confirm-code">${result.confirmation_code}</div>
-      <div style="font-size:13px;color:var(--g400);margin-top:8px">${iVote.fmtDate(result.voted_at)}</div>
-      <div style="margin-top:18px;padding:14px;background:rgba(41,128,185,.07);border-radius:10px;max-width:420px;margin-left:auto;margin-right:auto;text-align:left;border-left:3px solid var(--info)">
-        <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px"> What happens next</div>
-        <div style="font-size:12px;color:var(--g600);line-height:1.6">Your encrypted ballot will be <em>homomorphically added</em> to all other ballots. When voting closes, the server decrypts <em>only the final sum</em> — never individual votes. This is mathematically guaranteed by the Paillier cryptosystem.</div>
-      </div>
-      <div style="margin-top:24px;display:flex;gap:14px;justify-content:center">
-        <a href="/student/results" class="btn btn-gold">View Results When Published</a>
-        <a href="/student/dashboard" class="btn btn-navy">← Dashboard</a>
-      </div>
-    </div>`;
+        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:800;color:var(--navy);margin-bottom:8px">Encrypted Vote Recorded!</h2>
+        <p style="color:var(--g600);margin-bottom:16px">Your ballot was encrypted in your browser with Paillier HE before transmission.</p>
+        <div style="font-size:13px;color:var(--g400);margin-bottom:6px">Save your confirmation code:</div>
+        <div class="confirm-code">${result.confirmation_code}</div>
+        <div style="font-size:13px;color:var(--g400);margin-top:8px">${iVote.fmtDate(result.voted_at)}</div>
+        <div style="margin-top:18px;padding:14px;background:rgba(41,128,185,.07);border-radius:10px;max-width:420px;margin-left:auto;margin-right:auto;text-align:left;border-left:3px solid var(--info)">
+          <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px"> What happens next</div>
+          <div style="font-size:12px;color:var(--g600);line-height:1.6">Your encrypted ballot will be <em>homomorphically added</em> to all other ballots. When voting closes, the server decrypts <em>only the final sum</em> — never individual votes.</div>
+        </div>
+        <div style="margin-top:24px;display:flex;gap:14px;justify-content:center">
+          <a href="/student/results" class="btn btn-gold">View Results When Published</a>
+          <a href="/student/dashboard" class="btn btn-navy">← Dashboard</a>
+        </div></div>`;
     } catch (e) {
       iVote.hideSpinner();
       btn.disabled = false; btn.textContent = 'Encrypt & Submit Vote';
       iVote.showAlert(e.message, 'danger');
     }
   }
+
   loadVote();
 </script>
 {% endblock %}
