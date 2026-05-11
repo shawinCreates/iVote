@@ -1,7 +1,6 @@
 from __future__ import annotations
 import base64
 import re
-import shutil
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -17,16 +16,17 @@ from app.utils.helpers import authenticate, create_token
 from app.db.database import get_db
 from app.db.models import User, UserRole
 from app.schemas.schemas import NotificationOut, TokenOut, UserOut
-from app.core.config import _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR, ID_CARD_DIR, PROFILE_PHOTO_DIR
+from app.core.config import _EXT_MAP, _MAX_PHOTO_BYTES, ID_CARD_DIR, PROFILE_PHOTO_DIR
 from app.core.security import hash_password
 from app.core.email_service import generate_reset_token, reset_token_expiry, send_password_reset_email
+from app.core.cloudinary_service import CLOUDINARY_ENABLED, upload_bytes
 
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 _login_attempts: dict[str, list[float]] = defaultdict(list)
-_MAX_ATTEMPTS = 5       # max failures per window
-_WINDOW_SEC   = 300       # 5-minute window
+_MAX_ATTEMPTS = 5
+_WINDOW_SEC   = 300
 
 _PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
 _SAFE_TU_RE = re.compile(r'^\d+-\d+-\d+-\d+-\d+$')
@@ -94,7 +94,6 @@ async def register_stage1(
     if get_user_by_tu(db, tu_registration_number.strip()):
         raise HTTPException(400, detail="TU registration number is already registered")
 
-    # Persist a partial user so stage 2 can update it
     from app.db.models import RegistrationStage
     user = User(
         email                  = email.strip().lower(),
@@ -155,12 +154,19 @@ async def register_stage3(
     if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="ID card file must be smaller than 5 MB")
 
-    ext  = _EXT_MAP[id_card.content_type]
-    dest = ID_CARD_DIR / f"id_{user.tu_registration_number}{ext}"
-    with dest.open("wb") as f:
-        f.write(content)
+    ext       = _EXT_MAP[id_card.content_type]
+    public_id = f"id_{user.tu_registration_number}"
 
-    user.id_card_path       = f"uploads/id_cards/id_{user.tu_registration_number}{ext}"
+    if CLOUDINARY_ENABLED:
+        rtype = "raw" if id_card.content_type == "application/pdf" else "image"
+        url   = upload_bytes(content, folder="ovs/id_cards", public_id=public_id, resource_type=rtype)
+        user.id_card_path = url
+    else:
+        dest = ID_CARD_DIR / f"{public_id}{ext}"
+        with dest.open("wb") as f:
+            f.write(content)
+        user.id_card_path = f"uploads/id_cards/{public_id}{ext}"
+
     user.registration_stage = RegistrationStage.STAGE3
     db.commit()
     return {"stage": "stage3_complete"}
@@ -183,12 +189,17 @@ async def register_stage4(
     except Exception:
         raise HTTPException(400, detail="Invalid image data")
 
-    ext  = ".jpg"
-    dest = PROFILE_PHOTO_DIR / f"profile_{user.tu_registration_number}{ext}"
-    with dest.open("wb") as f:
-        f.write(img_bytes)
+    public_id = f"profile_{user.tu_registration_number}"
 
-    user.profile_photo_path  = f"uploads/profile_photo/profile_{user.tu_registration_number}{ext}"
+    if CLOUDINARY_ENABLED:
+        url = upload_bytes(img_bytes, folder="ovs/profile_photo", public_id=public_id)
+        user.profile_photo_path = url
+    else:
+        dest = PROFILE_PHOTO_DIR / f"{public_id}.jpg"
+        with dest.open("wb") as f:
+            f.write(img_bytes)
+        user.profile_photo_path = f"uploads/profile_photo/{public_id}.jpg"
+
     user.registration_stage  = RegistrationStage.COMPLETE
     db.commit()
     db.refresh(user)
@@ -242,11 +253,6 @@ async def resume_registration(
     password: str = Form(...),
     db: Session   = Depends(get_db),
 ):
-    """
-    Allow a student who dropped out mid-registration to resume.
-    Verifies email + password, returns a fresh JWT and their current stage.
-    The frontend uses the stage to skip completed steps.
-    """
     from app.db.models import RegistrationStage
     from app.utils.helpers import authenticate
 

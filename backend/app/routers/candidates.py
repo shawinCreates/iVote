@@ -10,6 +10,7 @@ from app.schemas.schemas import CandidateOut, RejectReasonIn
 from app.services.candidate_service import apply_candidacy, approve_candidate, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views, reject_candidate
 from app.utils.dependencies import require_admin, require_verified
 from app.core.config import _ALLOWED_PHOTO_TYPES, _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR
+from app.core.cloudinary_service import CLOUDINARY_ENABLED, upload_bytes
 
 student_router = APIRouter(prefix ="/api", tags=["Candidates"])
 admin_router = APIRouter(prefix ="/api/admin", tags=["Candidates - Admin"])
@@ -71,18 +72,14 @@ async def my_candidacy(
 
             if tally:
                 counts = json.loads(tally.decrypted_tally_json)
-
-                # handle string/int key mismatch
                 votes_received = (
                     counts.get(str(c.id))
                     or counts.get(c.id)
                     or 0
                 )
 
-        # attach dynamic fields (Pydantic will pick them)
         setattr(c, "votes_received", votes_received)
         setattr(c, "election_id", election.id)
-
         result.append(c)
 
     return result
@@ -111,15 +108,20 @@ async def apply(
     if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="Profile photo must be smaller than 5 MB")
 
-    ext  = _EXT_MAP[photo.content_type]
-    dest = CANDIDATE_PHOTO_DIR / f"cand_{user.id}_{position_id}{ext}"
-    with dest.open("wb") as f:
-        f.write(content)
+    ext       = _EXT_MAP[photo.content_type]
+    public_id = f"cand_{user.id}_{position_id}"
 
-    relative = f"uploads/candidates_photo/cand_{user.id}_{position_id}{ext}"
+    if CLOUDINARY_ENABLED:
+        photo_url = upload_bytes(content, folder="ovs/candidates_photo", public_id=public_id)
+    else:
+        dest = CANDIDATE_PHOTO_DIR / f"{public_id}{ext}"
+        with dest.open("wb") as f:
+            f.write(content)
+        photo_url = f"uploads/candidates_photo/{public_id}{ext}"
+
     try:
         return apply_candidacy(
-            db, user.id, position_id, manifesto, relative,
+            db, user.id, position_id, manifesto, photo_url,
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
