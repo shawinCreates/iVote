@@ -1,13 +1,13 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import RejectReasonIn, UserOut
-from app.services.auth_services import get_all_students, get_pending_students, get_user_id_card_path, get_user_profile_photo_path, get_user_profile_photo_path, reject_student, verify_student
+from app.services.auth_services import get_all_students, get_pending_students, get_user_id_card_path, get_user_profile_photo_path, reject_student, verify_student
 from app.utils.dependencies import require_admin
 from app.core.config import BASE_DIR
 
@@ -62,7 +62,11 @@ async def view_id_card(
     if not path:
         raise HTTPException(404, detail="ID card not found")
 
-    return FileResponse(str(path))
+    # Cloudinary URL → redirect the browser directly to the CDN
+    if path.startswith("http"):
+        return RedirectResponse(url=path)
+
+    return FileResponse(path)
 
 
 @router.get("/students/{user_id}/profile-photo")
@@ -75,4 +79,8 @@ async def view_profile_photo(
     if not path:
         raise HTTPException(404, detail="Profile photo not found")
 
-    return FileResponse(str(path))
+    # Cloudinary URL → redirect the browser directly to the CDN
+    if path.startswith("http"):
+        return RedirectResponse(url=path)
+
+    return FileResponse(path)

@@ -78,25 +78,33 @@ def reject_student(db: Session, user_id: int, admin_id: int,
     db.commit()
     return True
 
-def get_user_id_card_path(db: Session, user_id: int) -> Path | None:
+def get_user_id_card_path(db: Session, user_id: int) -> str | None:
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.id_card_path:
         return None
 
-    path = BASE_DIR / user.id_card_path
-    if not path.exists():
-        return None
+    stored = str(user.id_card_path)
 
-    return path
+    # Cloudinary URL — return as-is
+    if stored.startswith("http"):
+        return stored
+
+    # Local path
+    path = BASE_DIR / stored
+    return str(path) if path.exists() else None
 
 
-def get_user_profile_photo_path(db: Session, user_id: int) -> Path | None:
+def get_user_profile_photo_path(db: Session, user_id: int) -> str | None:
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.profile_photo_path:
         return None
 
-    path = BASE_DIR / user.profile_photo_path
-    if not path.exists():
-        return None
+    stored = str(user.profile_photo_path)
 
-    return path
+    # Cloudinary URL — return as-is
+    if stored.startswith("http"):
+        return stored
+
+    # Local path
+    path = BASE_DIR / stored
+    return str(path) if path.exists() else None
