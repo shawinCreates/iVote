@@ -17,14 +17,12 @@ passlib==1.7.4
 sendgrid==6.9.1
 
 deepface==0.0.93
-opencv-python-headless==4.10.0.84
 cloudinary==1.41.0
-
 requests==2.32.3
+
 Pillow==10.2.0
+numpy==1.26.4
 
 facenet-pytorch==2.6.0
-torch==2.4.1
-torchvision==0.19.1
-
-numpy==1.26.4
+torch==2.2.2
+torchvision==0.17.2
