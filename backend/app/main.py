@@ -21,15 +21,23 @@ _DEFAULT_ORIGINS = [
     "https://secureivote.vercel.app",
 ]
 _raw_origins = os.getenv("CORS_ORIGINS", "")
-_env_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-ALLOWED_ORIGINS = list(set(_DEFAULT_ORIGINS + _env_origins))
+_env_origins = []
+for origin in _raw_origins.split(","):
+    origin = origin.strip()
+    if not origin:
+        continue
+    if not origin.startswith("http://") and not origin.startswith("https://"):
+        origin = f"https://{origin}"
+    _env_origins.append(origin)
+
+ALLOWED_ORIGINS = list(dict.fromkeys(_DEFAULT_ORIGINS + _env_origins))
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router)
