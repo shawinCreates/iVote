@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,14 +9,8 @@ from app.services.schedular_service import start
 from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
 
-
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="iVote API",
-    description="Backend service for iVote application",
-    version="1.0.0"
-)
 
 def _normalize_origin(origin: str) -> str | None:
     origin = origin.strip().rstrip('/')
@@ -31,16 +26,28 @@ _DEFAULT_ORIGINS = [
     'https://secureivote.vercel.app',
 ]
 _raw_origins = os.getenv('CORS_ORIGINS', '')
-_env_origins = []
-for origin in _raw_origins.split(','):
-    normalized = _normalize_origin(origin)
-    if normalized:
-        _env_origins.append(normalized)
-
+_env_origins = [n for o in _raw_origins.split(',') if (n := _normalize_origin(o))]
 ALLOWED_ORIGINS = list(dict.fromkeys(_DEFAULT_ORIGINS + _env_origins))
 
-# Allow the public frontend origin and any additional explicitly configured origins.
-# The browser will receive the required Access-Control-Allow-Origin header for cross-site fetches.
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        start()
+    except Exception as e:
+        print(f"[WARNING] Scheduler failed to start: {e}")
+    yield
+    # Shutdown (add cleanup here if needed)
+
+
+app = FastAPI(
+    title="iVote API",
+    description="Backend service for iVote application",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ['*'],
@@ -56,7 +63,3 @@ app.include_router(elections.router)
 app.include_router(results.router)
 app.include_router(users.router)
 app.include_router(voting.router)
-
-@app.on_event("startup")
-async def startup():
-    start()
