@@ -39,11 +39,13 @@ for origin in _raw_origins.split(','):
 
 ALLOWED_ORIGINS = list(dict.fromkeys(_DEFAULT_ORIGINS + _env_origins))
 
+# Allow the public frontend origin and any additional explicitly configured origins.
+# The browser will receive the required Access-Control-Allow-Origin header for cross-site fetches.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allow_origins=ALLOWED_ORIGINS or ['*'],
+    allow_credentials=False,
+    allow_methods=['*'],
     allow_headers=['*'],
 )
 
