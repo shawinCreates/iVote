@@ -1,7 +1,16 @@
 import { securityMiddleware, tokenValidator, SecurityHeaders, ErrorHandlingMiddleware } from './middleware';
 
-// Type assertion for Next.js environment variables
-const API_BASE = (globalThis as any).process?.env?.NEXT_PUBLIC_API_BASE_URL;
+// Use Next.js injected environment variables in client code.
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE = rawApiBase ? rawApiBase.replace(/\/$/, '') : '';
+
+if (typeof window !== 'undefined' && !API_BASE) {
+  console.warn('[iVote] NEXT_PUBLIC_API_BASE_URL is not defined. Frontend API requests will use relative paths.');
+}
+
+function buildUrl(path: string) {
+  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+}
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -32,7 +41,7 @@ export function clearAuth() {
 }
 
 export async function api<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  const url = buildUrl(path);
   
   // Validate URL security
   try {
@@ -108,7 +117,7 @@ export async function login(email: string, password: string) {
   const form = new FormData();
   form.append('username', email);
   form.append('password', password);
-  const response = await fetch(`${API_BASE}/api/auth/login`, { method: 'POST', body: form });
+  const response = await fetch(buildUrl('/api/auth/login'), { method: 'POST', body: form });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
     throw new Error(errorBody?.detail || 'Login failed');
@@ -117,7 +126,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(formData: FormData) {
-  const response = await fetch(`${API_BASE}/api/auth/register`, { method: 'POST', body: formData });
+  const response = await fetch(buildUrl('/api/auth/register'), { method: 'POST', body: formData });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
     throw new Error(errorBody?.detail || 'Registration failed');
