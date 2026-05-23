@@ -29,7 +29,7 @@ def _normalize_origin(origin: str) -> str | None:
     return origin
 
 _DEFAULT_ORIGINS = [
-    'https://secureivote.vercel.app',
+    'http://localhost:3000',
 ]
 _raw_origins = os.getenv('CORS_ORIGINS', '')
 _env_origins = [n for o in _raw_origins.split(',') if (n := _normalize_origin(o))]
