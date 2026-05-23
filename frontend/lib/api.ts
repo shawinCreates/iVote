@@ -1,7 +1,7 @@
 import { securityMiddleware, tokenValidator, SecurityHeaders, ErrorHandlingMiddleware } from './middleware';
 
 // Type assertion for Next.js environment variables
-const API_BASE = (globalThis as any).process?.env?.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = (globalThis as any).process?.env?.NEXT_PUBLIC_API_BASE_URL;
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
