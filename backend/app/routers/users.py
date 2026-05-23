@@ -13,17 +13,21 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 @router.get("/students/pending", response_model=List[UserOut])
 async def pending_students(
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return get_pending_students(db)
+    return get_pending_students(db, skip=skip, limit=limit)
 
 @router.get("/students/all", response_model=List[UserOut])
 async def all_students(
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return get_all_students(db)
+    return get_all_students(db, skip=skip, limit=limit)
 
 @router.post("/students/{user_id}/verify")
 async def verify_student_endpoint(

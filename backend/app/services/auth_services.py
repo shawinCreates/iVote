@@ -30,19 +30,21 @@ def create_student(db: Session, email: str, full_name: str, tu: str,
     db.refresh(user)
     return user
 
-def get_pending_students(db: Session) -> List[User]:
+def get_pending_students(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
     return (db.query(User)
             .filter(User.is_verified == False,
                     User.is_active == True,
                     User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
             .order_by(User.created_at)
+            .offset(skip).limit(limit)
             .all())
 
-def get_all_students(db: Session) -> List[User]:
+def get_all_students(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
     return (db.query(User)
             .filter(User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
                     User.is_active == True)
             .order_by(User.created_at)
+            .offset(skip).limit(limit)
             .all())
 
 def verify_student(db: Session, user_id: int, admin_id: int,

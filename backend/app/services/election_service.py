@@ -17,6 +17,7 @@ from app.db.models import (
 from app.schemas.schemas import (
     ElectionIn
 )
+from app.core.crypto import fingerprint, generate_keypair, priv_to_json, pub_to_json
 from app.services.audit_notification_service import _audit, _notify, get_audit_logs
 from app.utils.helpers import _now
 
@@ -113,6 +114,12 @@ def update_election_status(
         )
 
     election.status = new_status
+
+    if new_status == ElectionStatus.VOTING_OPEN and not election.he_public_key_json:
+        pk, sk = generate_keypair()
+        election.he_public_key_json = pub_to_json(pk)
+        election.he_private_key_json = priv_to_json(sk)
+        election.he_key_fingerprint = fingerprint(pk)
 
     if new_status == ElectionStatus.RESULTS_PUBLISHED:
         election.results_published_at = _now()

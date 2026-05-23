@@ -81,11 +81,12 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
 
     if (!response.ok) {
       const body = contentType.includes('json') ? await response.json().catch(() => null) : null;
-      const message = body?.detail || body?.message || `HTTP ${response.status}`;
-      
+      const rawMessage = body?.detail || body?.message || body?.error || `HTTP ${response.status}`;
+      const message = Array.isArray(rawMessage) ? rawMessage.map((e: any) => e.msg || String(e)).join('. ') : String(rawMessage);
+
       // Handle error with middleware
       ErrorHandlingMiddleware.handleError({ status: response.status, message }, url);
-      
+
       // Check for auth-specific errors
       const authError = ErrorHandlingMiddleware.getAuthError({ status: response.status, message });
       if (authError) {
@@ -94,7 +95,7 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
         }
         throw new Error(authError);
       }
-      
+
       throw new Error(message);
     }
 
@@ -107,8 +108,9 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
 
     return (await response.text()) as unknown as T;
   } catch (error: any) {
-    // Log error response
-    securityMiddleware.logResponse(startTime, options.method || 'GET', url, 0, error?.message);
+    // Try to get actual status from the response if available
+    const status = error?.status || error?.response?.status || 0;
+    securityMiddleware.logResponse(startTime, options.method || 'GET', url, status, error?.message);
     throw error;
   }
 }
@@ -160,4 +162,104 @@ export async function fetchAdminElections() {
 
 export async function verifyStudent(id: number) {
   return api(`/api/admin/students/${id}/verify`, { method: 'POST' });
+}
+
+export async function fetchAllStudents(skip = 0, limit = 100) {
+  return api(`/api/admin/students/all?skip=${skip}&limit=${limit}`);
+}
+
+export async function rejectStudent(id: number, reason = '') {
+  return api(`/api/admin/students/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function fetchAdminCandidates(electionId?: number) {
+  const params = electionId ? `?election_id=${electionId}` : '';
+  return api(`/api/admin/candidates/pending${params}`);
+}
+
+export async function fetchAllAdminCandidates(electionId?: number) {
+  const params = electionId ? `?election_id=${electionId}` : '';
+  return api(`/api/admin/candidates/all${params}`);
+}
+
+export async function approveCandidate(id: number) {
+  return api(`/api/admin/candidates/${id}/approve`, { method: 'POST' });
+}
+
+export async function rejectCandidate(id: number, reason = '') {
+  return api(`/api/admin/candidates/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function createElection(data: any) {
+  return api('/api/admin/elections', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateElectionStatus(id: number, status: string) {
+  return api(`/api/admin/elections/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function lockCandidates(id: number) {
+  return api(`/api/admin/elections/${id}/lock-candidates`, { method: 'POST' });
+}
+
+export async function fetchAuditLogs(skip = 0, limit = 100) {
+  return api(`/api/admin/audit-logs?skip=${skip}&limit=${limit}`);
+}
+
+export async function exportAuditLogs() {
+  return api('/api/admin/audit-logs/export');
+}
+
+export async function fetchAdminElectionResults(electionId: number) {
+  return api(`/api/admin/elections/${electionId}/results`);
+}
+
+export async function publishResults(electionId: number) {
+  return api(`/api/admin/elections/${electionId}/publish-results`, { method: 'POST' });
+}
+
+export async function fetchElectionResults(electionId: number) {
+  return api(`/api/elections/${electionId}/results`);
+}
+
+export async function fetchHECandidates(positionId: number) {
+  return api(`/api/positions/${positionId}/candidates`);
+}
+
+export async function fetchMyCandidacy() {
+  return api('/api/my-candidacy');
+}
+
+export async function applyForCandidacy(formData: FormData) {
+  return api('/api/candidates/apply', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function castPlainVote(electionId: number, positions: { position_id: number; candidate_ids: number[] }[]) {
+  return api('/api/vote/plain', {
+    method: 'POST',
+    body: JSON.stringify({ election_id: electionId, positions }),
+  });
+}
+
+export async function checkHasVoted(electionId: number) {
+  return api(`/api/elections/${electionId}/has-voted`);
+}
+
+export async function fetchHEPublicKey(electionId: number) {
+  return api(`/api/elections/${electionId}/he-public-key`);
 }
