@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .venv/
 backend/.venv/
+backend/env/
 .vscode/
 node_modules/
 .next/
