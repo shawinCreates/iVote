@@ -3,8 +3,7 @@ import time
 import logging
 from typing import Callable
 from fastapi import Request, Response
-from fastapi.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
