@@ -5,6 +5,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import engine, Base
 from app.services.schedular_service import start
+from app.core.middleware import (
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware,
+    AuditLoggingMiddleware,
+    RateLimitMiddleware
+)
 
 from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
@@ -47,6 +53,12 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Add custom middleware (order matters - first added is first executed)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(AuditLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
 app.add_middleware(
     CORSMiddleware,
