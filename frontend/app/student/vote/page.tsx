@@ -1,232 +1,276 @@
-'use client';
+"use client";
+import { useState, useEffect } from "react";
+import { getActiveElections, getCandidatesForPosition, getHEPublicKey, hasVoted, verifyFace, castVote, getCandidatePhotoUrl, extractError } from "@/lib/api";
+import { encryptBallot, parsePublicKey } from "@/lib/paillier";
+import { useCamera } from "@/hooks/useCamera";
+import { Card, CardHeader, CardBody } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
+import EmptyState from "@/components/shared/EmptyState";
+import HEBadge from "@/components/shared/HEBadge";
+import ProtectedImage from "@/components/shared/ProtectedImage";
+import { FiCamera, FiCheck, FiLock, FiShield } from "react-icons/fi";
+import toast from "react-hot-toast";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { api, checkHasVoted, castPlainVote } from '../../../lib/api';
-import { timeRemaining } from '../../../lib/utils';
+type VoteStep = "loading" | "no-election" | "already-voted" | "face-verify" | "ballot" | "confirm" | "encrypting" | "success";
 
 export default function StudentVotePage() {
-  const router = useRouter();
-  const [election, setElection] = useState<any | null>(null);
+  const [step, setStep] = useState<VoteStep>("loading");
+  const [election, setElection] = useState<any>(null);
+  const [positions, setPositions] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<Record<number, any[]>>({});
   const [selections, setSelections] = useState<Record<number, number[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [publicKey, setPublicKey] = useState<any>(null);
+  const [error, setError] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmCode, setConfirmCode] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState<any>(null);
+  const [facePrompt, setFacePrompt] = useState("");
+
+  const camera = useCamera();
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
+    (async () => {
       try {
-        const data = await api('/api/elections');
-        const open = (data || []).find((e: any) => e.status === 'voting_open');
-        if (!open) { setElection(null); setLoading(false); return; }
-        setElection(open);
+        const elections = await getActiveElections();
+        const votingElection = (Array.isArray(elections) ? elections : []).find((e: any) => e.status === "voting_open");
+        if (!votingElection) { setStep("no-election"); return; }
+        setElection(votingElection);
 
-        const voted = await checkHasVoted(open.id);
-        setHasVoted(voted);
+        const voted = await hasVoted(votingElection.id).catch(() => ({ has_voted: false }));
+        if (voted?.has_voted) { setStep("already-voted"); return; }
 
-        if (voted?.has_voted) { setLoading(false); return; }
+        const pk = await getHEPublicKey(votingElection.id);
+        setPublicKey(parsePublicKey(pk));
 
-        const byPos: Record<number, any[]> = {};
-        for (const pos of open.positions || []) {
-          const data = await api(`/api/positions/${pos.id}/candidates`);
-          byPos[pos.id] = data || [];
+        const posArr = votingElection.positions ?? [];
+        setPositions(posArr);
+        const allCandidates: Record<number, any[]> = {};
+        for (const p of posArr) {
+          const c = await getCandidatesForPosition(p.id).catch(() => []);
+          allCandidates[p.id] = Array.isArray(c) ? c : [];
         }
-        setCandidates(byPos);
-      } catch (err: any) {
-        setError(err?.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+        setCandidates(allCandidates);
+        setStep("face-verify");
+      } catch (err) { setError(extractError(err)); setStep("no-election"); }
+    })();
   }, []);
 
-  function toggleSelect(positionId: number, candidateId: number, maxVotes: number) {
+  const handleFaceVerify = async () => {
+    setError(""); setVerifying(true);
+    try {
+      await camera.startCamera();
+      await new Promise((r) => setTimeout(r, 1000));
+      const frames = await camera.captureFrames((idx) => {
+        if (idx === camera.BLINK_FRAME) setFacePrompt("Please blink now");
+        else setFacePrompt(`Capturing frame ${idx + 1}/8...`);
+      });
+      setFacePrompt("Verifying identity...");
+      const mainImage = frames[0].replace(/^data:image\/[^;]+;base64,/, "");
+      const livenessFrames = frames.map((f) => f.replace(/^data:image\/[^;]+;base64,/, ""));
+      await verifyFace(mainImage, livenessFrames);
+      camera.stopCamera();
+      setFacePrompt("");
+      toast.success("Face verified successfully");
+      setStep("ballot");
+    } catch (err) {
+      setError(extractError(err));
+      setFacePrompt("");
+    }
+    setVerifying(false);
+  };
+
+  const toggleCandidate = (positionId: number, candidateId: number, maxVotes: number) => {
     setSelections((prev) => {
-      const current = prev[positionId] || [];
-      if (current.includes(candidateId)) {
-        return { ...prev, [positionId]: current.filter((id) => id !== candidateId) };
-      }
-      if (current.length >= maxVotes) {
-        if (maxVotes === 1) return { ...prev, [positionId]: [candidateId] };
-        return prev;
-      }
+      const current = prev[positionId] ?? [];
+      if (current.includes(candidateId)) return { ...prev, [positionId]: current.filter((id) => id !== candidateId) };
+      if (current.length >= maxVotes) return { ...prev, [positionId]: [...current.slice(1), candidateId] };
       return { ...prev, [positionId]: [...current, candidateId] };
     });
-  }
+  };
 
-  async function handleSubmit() {
-    if (!election) return;
-    const allPositions = election.positions || [];
-    for (const pos of allPositions) {
-      const sel = selections[pos.id] || [];
-      if (sel.length > pos.max_votes) {
-        setError(`You can select at most ${pos.max_votes} candidate(s) for ${pos.name}`);
-        return;
-      }
-    }
-
+  const handleSubmit = async () => {
     setSubmitting(true);
-    setError(null);
+    setStep("encrypting");
     try {
-      const positions = allPositions.map((pos: any) => ({
-        position_id: pos.id,
-        candidate_ids: selections[pos.id] || [],
-      }));
-      const result = await castPlainVote(election.id, positions);
-      setConfirmCode(result.confirmation_code);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to cast vote');
-    } finally {
-      setSubmitting(false);
+      await new Promise((r) => setTimeout(r, 500));
+      const ballot: any = { election_id: election.id, encrypted_votes: {} };
+      for (const pos of positions) {
+        const posCandidates = candidates[pos.id] ?? [];
+        const selectedIds = selections[pos.id] ?? [];
+        const selectedIndices = posCandidates.map((c: any, i: number) => selectedIds.includes(c.id) ? i : -1).filter((i: number) => i >= 0);
+        ballot.encrypted_votes[pos.id] = encryptBallot(selectedIndices, posCandidates.length, publicKey.n);
+      }
+      await castVote(ballot);
+      setStep("success");
+      toast.success("Vote cast successfully!");
+    } catch (err) {
+      setError(extractError(err));
+      setStep("ballot");
     }
-  }
+    setSubmitting(false);
+  };
 
-  if (loading) {
-    return <div className="skeleton" style={{ height: 400, borderRadius: 18 }} />;
-  }
+  if (step === "loading") return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 
-  if (confirmCode) {
-    return (
-      <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🗳️</div>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, marginBottom: 8 }}>Your Vote Has Been Recorded</h2>
-        <p style={{ color: 'var(--g600)', marginBottom: 18 }}>Your encrypted vote has been submitted and cannot be changed.</p>
-        <div style={{ background: 'var(--g100)', borderRadius: 12, padding: '16px 24px', display: 'inline-block', marginBottom: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--g400)', marginBottom: 4 }}>Confirmation Code</div>
-          <code style={{ fontSize: 20, fontWeight: 800, letterSpacing: 2, color: 'var(--navy)' }}>{confirmCode}</code>
-        </div>
-        <div>
-          <button className="btn btn-primary" onClick={() => router.push('/student/dashboard')}>Back to Dashboard</button>
-        </div>
+  if (step === "no-election") return (
+    <Card><CardBody><EmptyState title="No active voting" message={error || "There are no elections currently open for voting."} /></CardBody></Card>
+  );
+
+  if (step === "already-voted") return (
+    <Card glow="cyan"><CardBody className="text-center py-10">
+      <FiCheck size={40} className="mx-auto text-success mb-3" />
+      <div className="font-[var(--font-display)] text-lg font-bold text-white mb-1">Vote Already Cast</div>
+      <div className="text-sm text-text-3">You have already voted in this election. Thank you for participating!</div>
+    </CardBody></Card>
+  );
+
+  if (step === "success") return (
+    <Card glow="gold"><CardBody className="text-center py-10">
+      <FiShield size={40} className="mx-auto text-gold mb-3" />
+      <div className="font-[var(--font-display)] text-lg font-bold text-white mb-1">Vote Recorded</div>
+      <div className="text-sm text-text-3 max-w-[380px] mx-auto">Your encrypted ballot has been securely submitted. The server never sees your actual choices.</div>
+      <HEBadge fingerprint={publicKey?.n?.slice(0, 16)} />
+    </CardBody></Card>
+  );
+
+  if (step === "encrypting") return (
+    <Card><CardBody className="text-center py-16">
+      <div className="relative w-16 h-16 mx-auto mb-4">
+        <FiLock size={24} className="absolute inset-0 m-auto text-gold animate-pulse" />
+        <div className="w-full h-full rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
       </div>
-    );
-  }
-
-  if (hasVoted?.has_voted) {
-    return (
-      <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, marginBottom: 8 }}>You Have Already Voted</h2>
-        <p style={{ color: 'var(--g600)', marginBottom: 8 }}>Your vote was recorded on {new Date(hasVoted.voted_at).toLocaleString()}.</p>
-        <p style={{ color: 'var(--g400)', fontSize: 13, marginBottom: 18 }}>Confirmation: <code style={{ fontWeight: 700 }}>{hasVoted.confirmation_code}</code></p>
-        <button className="btn btn-primary" onClick={() => router.push('/student/dashboard')}>Back to Dashboard</button>
-      </div>
-    );
-  }
-
-  if (!election) {
-    return (
-      <div className="card">
-        <div className="empty" style={{ padding: 48 }}>
-          <div className="empty-title" style={{ fontSize: 20 }}>No Active Voting</div>
-          <div className="empty-text">There are no elections currently open for voting.</div>
-        </div>
-      </div>
-    );
-  }
+      <div className="font-[var(--font-display)] text-sm font-bold text-white mb-1">Encrypting Ballot</div>
+      <div className="text-xs text-text-3">Applying Paillier homomorphic encryption...</div>
+    </CardBody></Card>
+  );
 
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
-        </div>
-      )}
+    <div className="space-y-4 animate-fade-up">
+      {error && <Alert type="danger" onDismiss={() => setError("")}>{error}</Alert>}
 
-      <div className="e-hero" style={{ marginBottom: 18 }}>
-        <div className="e-hero-bg" />
-        <div className="e-hero-inner">
-          <div>
-            <div className="e-hero-label">Voting Open</div>
-            <div className="e-hero-name">{election.name}</div>
-            <div className="e-hero-sub">Review candidates and cast your vote before the election closes.</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="e-hero-timer">{timeRemaining(election.voting_end)}</div>
-            <div className="e-hero-timer-lbl">Remaining</div>
-          </div>
-        </div>
-      </div>
-
-      {(election.positions || []).map((pos: any) => {
-        const posCandidates = candidates[pos.id] || [];
-        return (
-          <div key={pos.id} className="card" style={{ marginBottom: 18 }}>
-            <div className="card-hd">
-              <div className="card-title">{pos.name}</div>
-              <span style={{ fontSize: 13, color: 'var(--g400)' }}>
-                Select up to {pos.max_votes} · {posCandidates.length} candidate(s)
-              </span>
-            </div>
-            <div style={{ padding: 18 }}>
-              {posCandidates.length === 0 ? (
-                <div className="empty" style={{ padding: 24 }}>
-                  <div className="empty-text">No candidates available for this position</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {posCandidates.map((c: any) => {
-                    const selected = (selections[pos.id] || []).includes(c.id);
-                    return (
-                      <label
-                        key={c.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 14,
-                          padding: '14px 18px',
-                          borderRadius: 14,
-                          border: `2px solid ${selected ? 'var(--gold)' : 'var(--g100)'}`,
-                          background: selected ? 'rgba(240,165,0,0.06)' : 'white',
-                          cursor: 'pointer',
-                          transition: 'all var(--t)',
-                        }}
-                      >
-                        <input
-                          type={pos.max_votes === 1 ? 'radio' : 'checkbox'}
-                          name={`pos_${pos.id}`}
-                          checked={selected}
-                          onChange={() => toggleSelect(pos.id, c.id, pos.max_votes)}
-                          style={{ width: 18, height: 18, accentColor: 'var(--gold)', cursor: 'pointer' }}
-                        />
-                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,var(--gold),var(--gold-lt))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--navy)', flexShrink: 0 }}>
-                          {c.user?.full_name?.[0] || '?'}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700 }}>{c.user?.full_name}</div>
-                          <div style={{ fontSize: 12, color: 'var(--g400)' }}>
-                            {c.user?.faculty} · Year {c.user?.year}
-                            {c.party_affiliation ? ` · ${c.party_affiliation}` : ''}
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })}
+      {/* Face Verification */}
+      {step === "face-verify" && (
+        <Card glow="cyan">
+          <CardHeader title="Identity Verification" subtitle="Face verification is required before voting" />
+          <CardBody className="space-y-4">
+            <div className="relative bg-void rounded-[var(--radius-lg)] overflow-hidden aspect-[4/3] max-w-[480px] mx-auto">
+              <video ref={camera.videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+              {facePrompt && (
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                  <span className="bg-void/80 px-4 py-2 rounded-full text-sm text-cyan font-[var(--font-display)] font-bold">{facePrompt}</span>
                 </div>
               )}
             </div>
-          </div>
-        );
-      })}
+            {camera.error && <Alert type="danger">{camera.error}</Alert>}
+            <div className="text-center">
+              <Button onClick={handleFaceVerify} isLoading={verifying} leftIcon={<FiCamera size={14} />} className="min-w-[200px]">
+                {camera.isActive ? "Verify Face" : "Start Verification"}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
-      <div className="card" style={{ padding: 18 }}>
-        <button
-          className="btn btn-gold btn-lg btn-block"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? 'Submitting Your Vote…' : 'Cast My Vote'}
-        </button>
-        <p style={{ fontSize: 12, color: 'var(--g400)', textAlign: 'center', marginTop: 12 }}>
-          Your vote will be encrypted end-to-end and cannot be changed after submission.
-        </p>
-      </div>
+      {/* Ballot */}
+      {step === "ballot" && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-[var(--font-display)] text-lg font-bold text-white">{election?.name}</h2>
+              <div className="text-xs text-text-3">Select your candidates for each position</div>
+            </div>
+            <HEBadge fingerprint={publicKey?.n?.slice(0, 16)} />
+          </div>
+
+          {positions.map((pos: any) => {
+            const posCandidates = candidates[pos.id] ?? [];
+            const selected = selections[pos.id] ?? [];
+            const maxVotes = pos.max_votes ?? 1;
+            return (
+              <Card key={pos.id}>
+                <CardHeader title={pos.name} subtitle={`Select up to ${maxVotes} candidate${maxVotes > 1 ? "s" : ""}`} />
+                <CardBody>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {posCandidates.map((c: any) => {
+                      const isSelected = selected.includes(c.id);
+                      const name = c.user?.full_name ?? "Candidate";
+                      return (
+                        <div key={c.id} onClick={() => toggleCandidate(pos.id, c.id, maxVotes)}
+                          className={`flex items-center gap-3 p-3 rounded-[var(--radius-md)] border-2 cursor-pointer transition-all
+                            ${isSelected ? "border-gold bg-gold-dim shadow-[0_0_12px_var(--color-gold-glow)]" : "border-border bg-surface-2 hover:border-border-bright"}`}>
+                          <div className="w-10 h-10 rounded-full overflow-hidden border border-border shrink-0">
+                            <ProtectedImage
+                              url={getCandidatePhotoUrl(c.id)}
+                              alt={name}
+                              initials={name}
+                              className="w-full h-full"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-white">{name}</div>
+                            <div className="text-xs text-text-3">{c.user?.faculty ?? ""}</div>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0
+                            ${isSelected ? "border-gold bg-gold" : "border-border"}`}>
+                            {isSelected && <FiCheck size={12} className="text-void" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardBody>
+              </Card>
+            );
+          })}
+
+          <div className="flex justify-end">
+            <Button variant="primary-gold" onClick={() => setStep("confirm")}
+              disabled={Object.values(selections).every((s) => s.length === 0)}
+              leftIcon={<FiLock size={14} />}>
+              Review & Submit
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* Confirm */}
+      {step === "confirm" && (
+        <Card glow="gold">
+          <CardHeader title="Review Your Ballot" subtitle="Please confirm your selections before submitting" />
+          <CardBody className="space-y-4">
+            {positions.map((pos: any) => {
+              const selected = selections[pos.id] ?? [];
+              const posCandidates = candidates[pos.id] ?? [];
+              return (
+                <div key={pos.id}>
+                  <div className="text-[11px] uppercase tracking-wider text-text-3 font-[var(--font-display)] font-bold mb-1">{pos.name}</div>
+                  {selected.length === 0 ? (
+                    <div className="text-sm text-text-3 italic">No selection (abstain)</div>
+                  ) : (
+                    selected.map((id) => {
+                      const c = posCandidates.find((x: any) => x.id === id);
+                      return (
+                        <div key={id} className="text-sm text-white flex items-center gap-2">
+                          <FiCheck size={14} className="text-gold" />
+                          {c?.user?.full_name ?? "—"}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })}
+
+            <Alert type="info">Your ballot will be encrypted using Paillier homomorphic encryption before transmission. The server will never see your individual choices.</Alert>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setStep("ballot")}>Back to Ballot</Button>
+              <Button onClick={handleSubmit} isLoading={submitting} leftIcon={<FiLock size={14} />}>Encrypt & Submit</Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

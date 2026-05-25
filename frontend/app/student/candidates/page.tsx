@@ -1,134 +1,141 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
-import { formatDate } from '../../../lib/utils';
+"use client";
+import { useState, useEffect } from "react";
+import { getElections, getCandidatesForPosition, getCandidatePhotoUrl } from "@/lib/api";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Spinner } from "@/components/ui/Spinner";
+import EmptyState from "@/components/shared/EmptyState";
+import ProtectedImage from "@/components/shared/ProtectedImage";
+import Modal from "@/components/ui/Modal";
 
 export default function StudentCandidatesPage() {
   const [elections, setElections] = useState<any[]>([]);
-  const [selectedElection, setSelectedElection] = useState<number | null>(null);
+  const [selectedElection, setSelectedElection] = useState<any>(null);
+  const [positionTab, setPositionTab] = useState<number>(0);
   const [candidates, setCandidates] = useState<Record<number, any[]>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any>(null);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api('/api/elections');
-        const active = (data || []).filter((e: any) =>
-          ['nomination_open', 'voting_open', 'closed', 'results_published'].includes(e.status)
-        );
-        setElections(active);
-        if (active.length > 0) setSelectedElection(active[0].id);
-      } catch (err: any) {
-        setError(err?.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    getElections().then((data: any) => {
+      const list = (Array.isArray(data) ? data : []).sort((a: any, b: any) => b.id - a.id);
+      setElections(list);
+      if (list.length > 0) setSelectedElection(list[0]);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!selectedElection) return;
-    async function loadCandidates() {
-      const election = elections.find((e) => e.id === selectedElection);
-      if (!election) return;
-      const byPos: Record<number, any[]> = {};
-      for (const pos of election.positions || []) {
-        try {
-          const data = await api(`/api/positions/${pos.id}/candidates`);
-          byPos[pos.id] = data || [];
-        } catch {
-          byPos[pos.id] = [];
-        }
-      }
-      setCandidates(byPos);
-    }
-    loadCandidates();
-  }, [selectedElection, elections]);
+    if (!selectedElection?.positions?.length) return;
+    selectedElection.positions.forEach((p: any) => {
+      getCandidatesForPosition(p.id).then((data) => {
+        setCandidates((prev) => ({ ...prev, [p.id]: Array.isArray(data) ? data : [] }));
+      }).catch(() => {});
+    });
+  }, [selectedElection]);
 
-  const currentElection = elections.find((e) => e.id === selectedElection);
+  if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+
+  const positions = selectedElection?.positions ?? [];
+  const currentPosition = positions[positionTab];
+  const currentCandidates = currentPosition ? (candidates[currentPosition.id] ?? []) : [];
 
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
-        </div>
-      )}
-
+    <div className="space-y-4 animate-fade-up">
+      {/* Election selector */}
       {elections.length > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {elections.map((e) => (
-            <button
-              key={e.id}
-              className={`btn btn-sm ${selectedElection === e.id ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setSelectedElection(e.id)}
-            >
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {elections.map((e: any) => (
+            <button key={e.id} onClick={() => { setSelectedElection(e); setPositionTab(0); }}
+              className={`px-4 py-2 text-[11px] uppercase tracking-wider font-[var(--font-display)] font-bold rounded-[var(--radius-md)] border cursor-pointer whitespace-nowrap transition-all
+                ${selectedElection?.id === e.id ? "bg-gold-dim border-gold text-gold" : "bg-surface-2 border-border text-text-3 hover:text-white"}`}>
               {e.name}
             </button>
           ))}
         </div>
       )}
 
-      {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 18 }} />
-      ) : !currentElection ? (
-        <div className="card">
-          <div className="empty">
-            <div className="empty-title">No elections available</div>
-          </div>
+      {/* Position tabs */}
+      {positions.length > 0 && (
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {positions.map((p: any, i: number) => (
+            <button key={p.id} onClick={() => setPositionTab(i)}
+              className={`px-4 py-2 text-[11px] uppercase tracking-wider font-[var(--font-display)] font-bold rounded-[var(--radius-md)] border cursor-pointer whitespace-nowrap transition-all
+                ${positionTab === i ? "bg-cyan-dim border-cyan text-cyan" : "bg-surface-2 border-border text-text-3 hover:text-white"}`}>
+              {p.name}
+            </button>
+          ))}
         </div>
+      )}
+
+      {/* Candidate grid */}
+      {currentCandidates.length === 0 ? (
+        <Card><CardBody><EmptyState title="No candidates" message="No approved candidates for this position yet." /></CardBody></Card>
       ) : (
-        (currentElection.positions || []).map((pos: any) => {
-          const posCandidates = candidates[pos.id] || [];
-          return (
-            <div key={pos.id} className="card" style={{ marginBottom: 18 }}>
-              <div className="card-hd">
-                <div className="card-title">{pos.name}</div>
-                <span style={{ fontSize: 13, color: 'var(--g400)' }}>{posCandidates.length} candidate(s) · Max votes: {pos.max_votes}</span>
-              </div>
-              <div style={{ padding: 18 }}>
-                {posCandidates.length === 0 ? (
-                  <div className="empty" style={{ padding: 24 }}>
-                    <div className="empty-text">No approved candidates for this position</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {currentCandidates.map((c: any) => {
+            const name = c.user?.full_name ?? "Candidate";
+            return (
+              <Card key={c.id} hover onClick={() => setDetail(c)}>
+                <CardBody className="text-center py-6">
+                  <div className="w-20 h-20 rounded-full mx-auto mb-3 overflow-hidden border-2 border-border">
+                    <ProtectedImage
+                      url={getCandidatePhotoUrl(c.id)}
+                      alt={name}
+                      initials={name}
+                      className="w-full h-full"
+                    />
                   </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                    {posCandidates.map((c: any) => (
-                      <div key={c.id} style={{ border: '1px solid var(--g100)', borderRadius: 16, padding: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,var(--gold),var(--gold-lt))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--navy)', fontWeight: 800, fontSize: 16 }}>
-                            {c.user?.full_name?.[0] || '?'}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{c.user?.full_name}</div>
-                            <div style={{ fontSize: 12, color: 'var(--g400)' }}>{c.user?.faculty} · Year {c.user?.year}</div>
-                          </div>
-                        </div>
-                        {c.party_affiliation && (
-                          <div style={{ fontSize: 13, marginBottom: 8 }}>
-                            <span style={{ fontWeight: 600 }}>Party:</span> {c.party_affiliation}
-                          </div>
-                        )}
-                        {c.manifesto && (
-                          <div style={{ fontSize: 13, color: 'var(--g600)', lineHeight: 1.5, maxHeight: 80, overflow: 'hidden' }}>
-                            {c.manifesto}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  <div className="font-[var(--font-display)] text-sm font-bold text-white">{name}</div>
+                  <div className="text-xs text-text-3 mt-0.5">{c.user?.faculty ?? ""}</div>
+                  {c.user?.program && <div className="text-xs text-text-3">{c.user.program}</div>}
+                  {c.manifesto && <div className="text-xs text-text-2 mt-2 line-clamp-2">{c.manifesto}</div>}
+                </CardBody>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Detail modal */}
+      <Modal isOpen={!!detail} onClose={() => setDetail(null)} title={detail?.user?.full_name ?? "Candidate"} size="md">
+        {detail && (
+          <div className="space-y-5">
+            <div className="flex justify-center">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
+                <ProtectedImage
+                  url={getCandidatePhotoUrl(detail.id)}
+                  alt={detail.user?.full_name ?? ""}
+                  initials={detail.user?.full_name ?? "?"}
+                  className="w-full h-full"
+                />
               </div>
             </div>
-          );
-        })
-      )}
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {[
+                ["Faculty",  detail.user?.faculty  ?? "—"],
+                ["Program",  detail.user?.program  ?? "—"],
+                ["Year",     detail.user?.year != null ? `Year ${detail.user.year}` : "—"],
+                ["Semester", detail.user?.semester != null ? `Semester ${detail.user.semester}` : "—"],
+              ].map(([label, val]) => (
+                <div key={label}>
+                  <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mb-0.5">{label}</div>
+                  <div className="text-text-1">{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {detail.manifesto && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] font-bold mb-2">Manifesto</div>
+                <div className="text-sm text-text-1 bg-surface-1 border border-border rounded-[var(--radius-md)] p-4 leading-relaxed whitespace-pre-wrap">
+                  {detail.manifesto}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

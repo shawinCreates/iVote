@@ -1,22 +1,18 @@
-import AppShell from '../../components/AppShell';
-
-export const metadata = {
-  title: 'Admin Portal — iVote'
-};
-
-const navItems = [
-  { label: 'Dashboard', href: '/admin/dashboard' },
-  { label: 'Students', href: '/admin/students' },
-  { label: 'Elections', href: '/admin/elections' },
-  { label: 'Candidates', href: '/admin/candidates' },
-  { label: 'Results', href: '/admin/results' },
-  { label: 'Audit Logs', href: '/admin/audit' }
-];
+"use client";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import AppShell from "@/components/AppShell";
+import { FullPageSpinner } from "@/components/ui/Spinner";
+import { useEffect } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AppShell pageTitle="Dashboard" sidebarRole="Election Head" navItems={navItems}>
-      {children}
-    </AppShell>
-  );
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || !isAdmin)) router.push("/");
+  }, [isLoading, isAuthenticated, isAdmin, router]);
+
+  if (isLoading || !isAuthenticated || !isAdmin) return <FullPageSpinner />;
+  return <AppShell>{children}</AppShell>;
 }

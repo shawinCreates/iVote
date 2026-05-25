@@ -25,6 +25,16 @@ from app.services.audit_notification_service import get_admin_stats
 
 router = APIRouter(tags=["Elections"])
 
+# ===========================================================================
+# Internal schema for status update body
+# (defined here so it doesn't pollute the shared schemas file)
+# ===========================================================================
+
+from pydantic import BaseModel  # noqa: E402  (kept local on purpose)
+
+
+class _StatusBody(BaseModel):
+    status: ElectionStatus
 
 # ===========================================================================
 # Student-facing endpoints
@@ -84,8 +94,8 @@ async def get_he_public_key(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Election not found")
     if not election.he_public_key_json:
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            detail="No public key has been generated for this election yet",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Encryption keys are not ready yet. The election must reach voting phase first.",
         )
     return {
         "election_id":    election.id,
@@ -186,7 +196,23 @@ async def admin_audit_logs(
     db: Session  = Depends(get_db),
     admin: User  = Depends(require_admin),
 ):
-    return get_audit_logs(db, skip=skip, limit=limit)
+    logs = get_audit_logs(db, skip=skip, limit=limit)
+    user_ids = {l.user_id for l in logs if l.user_id}
+    users = {u.id: u.email for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    return [
+        {
+            "id": l.id,
+            "action": l.action,
+            "actor_role": l.actor_role,
+            "user_id": l.user_id,
+            "user_email": users.get(l.user_id),
+            "election_id": l.election_id,
+            "details": l.details,
+            "ip_address": l.ip_address,
+            "timestamp": l.timestamp,
+        }
+        for l in logs
+    ]
 
 
 @router.get(
@@ -215,15 +241,3 @@ async def admin_export_audit_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=audit_logs.csv"},
     )
-
-
-# ===========================================================================
-# Internal schema for status update body
-# (defined here so it doesn't pollute the shared schemas file)
-# ===========================================================================
-
-from pydantic import BaseModel  # noqa: E402  (kept local on purpose)
-
-
-class _StatusBody(BaseModel):
-    status: ElectionStatus

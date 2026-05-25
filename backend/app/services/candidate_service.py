@@ -1,36 +1,30 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime, timezone
-
 from app.db.models import( Candidate, Position, ApprovalStatus, ElectionStatus, UserRole)
 from app.services.audit_notification_service import _audit, _notify
 from app.services.election_service import get_election
 from app.utils.helpers import _now
 
-def get_pending_candidates(db: Session,
-                           election_id: Optional[int] = None) -> List[Candidate]:
-    q = db.query(Candidate).filter(Candidate.approval_status == ApprovalStatus.PENDING)
+def get_pending_candidates(db, election_id = None):
+    query = db.query(Candidate).filter(Candidate.approval_status == ApprovalStatus.PENDING)
     if election_id:
-        q = q.join(Position).filter(Position.election_id == election_id)
-    return q.order_by(Candidate.applied_at).all()
+        query = query.join(Position).filter(Position.election_id == election_id)
+    return query.order_by(Candidate.applied_at).all()
 
-def get_all_candidates(db: Session,
-                       election_id: Optional[int] = None) -> List[Candidate]:
-    q = db.query(Candidate)
+def get_all_candidates(db,
+                       election_id = None):
+    query = db.query(Candidate)
     if election_id:
-        q = q.join(Position).filter(Position.election_id == election_id)
-    return q.order_by(Candidate.applied_at).all()
+        query = query.join(Position).filter(Position.election_id == election_id)
+    return query.order_by(Candidate.applied_at).all()
 
-def get_approved_candidates(db: Session, position_id: int) -> List[Candidate]:
+def get_approved_candidates(db, position_id: int):
     return (db.query(Candidate)
             .filter(Candidate.position_id == position_id,
                     Candidate.approval_status == ApprovalStatus.APPROVED)
             .order_by(Candidate.id)
             .all())
 
-def apply_candidacy(db: Session, user_id: int, position_id: int,
-                    manifesto: str, party: Optional[str],
-                    photo_path: str) -> Candidate:
+def apply_candidacy(db, user_id, position_id, manifesto, 
+                 photo_path):
     pos = db.query(Position).filter(Position.id == position_id).first()
     if not pos:
         raise ValueError("Position not found")
@@ -44,8 +38,7 @@ def apply_candidacy(db: Session, user_id: int, position_id: int,
         db.query(Candidate)
         .join(Position, Candidate.position_id == Position.id)
         .filter(
-            Candidate.user_id == user_id,
-            Position.election_id == e.id,
+            Candidate.user_id == user_id, Position.election_id == e.id,
         )
         .first()
     )
@@ -56,15 +49,15 @@ def apply_candidacy(db: Session, user_id: int, position_id: int,
         )
 
     c = Candidate(user_id=user_id, position_id=position_id,
-                  manifesto=manifesto, party_affiliation=party, photo_path=photo_path)
+                  manifesto=manifesto, photo_path=photo_path)
     db.add(c)
-    _audit(db, "CANDIDACY_APPLIED", user_id, election_id=e.id,
+    _audit(db, "CANDIDACY_APPLIED", user_id,actor_role="student", election_id=e.id,
            details=f"Applied for position ID {position_id}")
     db.commit()
     db.refresh(c)
     return c
 
-def approve_candidate(db: Session, candidate_id: int, admin_id: int) -> Candidate:
+def approve_candidate(db, candidate_id, admin_id):
     c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not c:
         raise ValueError("Candidate not found")
@@ -72,22 +65,21 @@ def approve_candidate(db: Session, candidate_id: int, admin_id: int) -> Candidat
     c.approved_at = _now()
     c.user.role = UserRole.CANDIDATE
     _audit(db, "CANDIDATE_APPROVED", admin_id,
-           details=f"Approved candidate ID {candidate_id}")
-    _notify(db, c.user_id, "Candidacy Approved! 🎉",
+           actor_role="admin", details=f"Approved candidate '{c.user.full_name}' for '{c.position.name}'")
+    _notify(db, c.user_id, "Candidacy Approved!",
             f"Your application for '{c.position.name}' has been approved.",
             "success", election_id=c.position.election_id)
     db.commit()
     db.refresh(c)
     return c
 
-def reject_candidate(db: Session, candidate_id: int, admin_id: int,
-                     reason: Optional[str] = None) -> Candidate:
+def reject_candidate(db, candidate_id, admin_id, reason = None):
     c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not c:
         raise ValueError("Candidate not found")
     c.approval_status = ApprovalStatus.REJECTED
     c.rejection_reason = reason or "Not approved by Election Head."
-    _audit(db, "CANDIDATE_REJECTED", admin_id,
+    _audit(db, "CANDIDATE_REJECTED", admin_id, actor_role="admin", 
            details=f"Rejected candidate ID {candidate_id}")
     _notify(db, c.user_id, "Candidacy Not Approved",
             f"Your application for '{c.position.name}' was not approved. {c.rejection_reason}",
@@ -96,7 +88,7 @@ def reject_candidate(db: Session, candidate_id: int, admin_id: int,
     db.refresh(c)
     return c
 
-def increment_views(db: Session, candidate_id: int) -> None:
+def increment_views(db, candidate_id):
     db.query(Candidate).filter(Candidate.id == candidate_id).update(
         {Candidate.profile_views: Candidate.profile_views + 1}
     )

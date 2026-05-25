@@ -1,269 +1,283 @@
-'use client';
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { adminGetElections, adminCreateElection, adminUpdateStatus, extractError } from "@/lib/api";
+import { fmtDateTime, fmtRelative } from "@/lib/formatters";
+import { Card, CardBody } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/FormControls";
+import Modal from "@/components/ui/Modal";
+import { Spinner } from "@/components/ui/Spinner";
+import EmptyState from "@/components/shared/EmptyState";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import ElectionCountdown from "@/components/shared/ElectionCountdown";
+import { FiPlus, FiX as FiXIcon, FiCheck, FiBarChart2 } from "react-icons/fi";
+import toast from "react-hot-toast";
 
-import { useEffect, useState } from 'react';
-import {
-  fetchAdminElections,
-  createElection,
-  updateElectionStatus,
-  lockCandidates,
-  fetchHEPublicKey,
-} from '../../../lib/api';
-import { formatDate, statusLabel, getStatusBadgeClass } from '../../../lib/utils';
+const STAGES = [
+  { key: "draft",               short: "Draft" },
+  { key: "nomination_open",     short: "Nom. Open" },
+  { key: "nomination_closed",   short: "Nom. Closed" },
+  { key: "voting_open",         short: "Voting" },
+  { key: "closed",              short: "Closed" },
+  { key: "results_published",   short: "Published" },
+] as const;
 
-export default function AdminElectionsPage() {
-  const [elections, setElections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+const STAGE_INDEX: Record<string, number> = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchAdminElections();
-      setElections(data || []);
-    } catch (err: any) {
-      setError(err?.message);
-    } finally {
-      setLoading(false);
-    }
+function nextTransitionLabel(e: any): string | null {
+  const now = Date.now();
+  const parse = (v: string | null) => v ? new Date(v).getTime() : null;
+  const nomStart  = parse(e.nomination_start);
+  const nomEnd    = parse(e.nomination_end);
+  const voteStart = parse(e.voting_start);
+  const voteEnd   = parse(e.voting_end);
+
+  switch (e.status) {
+    case "draft":
+      return nomStart && nomStart > now ? `Nominations open ${fmtRelative(e.nomination_start)}` : null;
+    case "nomination_open":
+      return nomEnd && nomEnd > now ? `Nominations close ${fmtRelative(e.nomination_end)}` : null;
+    case "nomination_closed":
+      return voteStart && voteStart > now ? `Voting opens ${fmtRelative(e.voting_start)}` : null;
+    case "voting_open":
+      return voteEnd && voteEnd > now ? `Voting closes ${fmtRelative(e.voting_end)}` : null;
+    default:
+      return null;
   }
+}
 
-  useEffect(() => { load(); }, []);
-
-  async function onStatusChange(id: number, status: string) {
-    try {
-      await updateElectionStatus(id, status);
-      await load();
-    } catch (err: any) {
-      setError(err?.message);
-    }
-  }
-
-  async function onLock(id: number) {
-    try {
-      await lockCandidates(id);
-      await load();
-    } catch (err: any) {
-      setError(err?.message);
-    }
-  }
-
+function ElectionStepper({ status }: { status: string }) {
+  const current = STAGE_INDEX[status] ?? 0;
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div style={{ marginBottom: 18 }}>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? '← Back to List' : '+ Create Election'}
-        </button>
-      </div>
-
-      {showForm ? (
-        <CreateElectionForm
-          onCreated={() => { setShowForm(false); load(); }}
-          onError={setError}
-        />
-      ) : (
-        <div className="card">
-          <div className="card-hd">
-            <div className="card-title">All Elections</div>
-            <span style={{ fontSize: 13, color: 'var(--g400)' }}>{elections.length} election(s)</span>
-          </div>
-          <div style={{ padding: '0 18px 18px' }}>
-            {loading ? (
-              <div className="skeleton" style={{ height: 300, borderRadius: 18 }} />
-            ) : elections.length === 0 ? (
-              <div className="empty">
-                <div className="empty-title">No elections created yet</div>
-                <div className="empty-text">Click "Create Election" to get started</div>
-              </div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Election</th>
-                      <th>Positions</th>
-                      <th>Voting Period</th>
-                      <th>Status</th>
-                      <th>HE Keys</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {elections.map((e) => (
-                      <tr key={e.id}>
-                        <td>
-                          <strong>{e.name}</strong>
-                          {e.description && <div style={{ fontSize: 12, color: 'var(--g400)' }}>{e.description}</div>}
-                        </td>
-                        <td>{e.positions?.length ?? 0}</td>
-                        <td style={{ fontSize: 13 }}>{formatDate(e.voting_start)} → {formatDate(e.voting_end)}</td>
-                        <td><span className={getStatusBadgeClass(e.status)}>{statusLabel(e.status)}</span></td>
-                        <td>
-                          {e.he_key_fingerprint
-                            ? <span className="he-badge" style={{ color: 'var(--navy)', background: 'var(--g100)' }}>…{e.he_key_fingerprint.slice(-12)}</span>
-                            : <span style={{ fontSize: 12, color: 'var(--g400)' }}>—</span>}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                            {e.status === 'draft' && (
-                              <button className="btn btn-sm btn-primary" onClick={() => onStatusChange(e.id, 'nomination_open')}>Open Nominations</button>
-                            )}
-                            {e.status === 'nomination_open' && !e.candidates_locked && (
-                              <button className="btn btn-sm btn-outline" onClick={() => onLock(e.id)}>Lock Candidates</button>
-                            )}
-                            {e.status === 'nomination_open' && (
-                              <button className="btn btn-sm btn-gold" onClick={() => onStatusChange(e.id, 'voting_open')}>Open Voting</button>
-                            )}
-                            {e.status === 'nomination_open' && (
-                              <button className="btn btn-sm btn-outline" style={{ borderColor: 'var(--g400)', color: 'var(--g600)' }} onClick={() => onStatusChange(e.id, 'draft')}>Revert to Draft</button>
-                            )}
-                            {e.status === 'voting_open' && (
-                              <button className="btn btn-sm" style={{ background: 'var(--crimson)', color: 'white' }} onClick={() => onStatusChange(e.id, 'closed')}>Close Election</button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+    <div className="flex items-center w-full my-3">
+      {STAGES.map((s, i) => {
+        const done   = i < current;
+        const active = i === current;
+        return (
+          <div key={s.key} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <div className={`w-3 h-3 rounded-full border-2 transition-all
+                ${done   ? "bg-cyan border-cyan" :
+                  active ? "bg-cyan border-cyan shadow-[0_0_8px_var(--color-cyan-glow)]" :
+                           "bg-transparent border-border"}`} />
+              <span className={`text-[9px] font-[var(--font-display)] uppercase tracking-wide whitespace-nowrap
+                ${done || active ? "text-cyan" : "text-text-3"}`}>
+                {s.short}
+              </span>
+            </div>
+            {i < STAGES.length - 1 && (
+              <div className={`flex-1 h-px mx-1 mb-4 ${done ? "bg-cyan" : "bg-border"}`} />
             )}
           </div>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
 
-function CreateElectionForm({ onCreated, onError }: { onCreated: () => void; onError: (msg: string) => void }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [nominationStart, setNominationStart] = useState('');
-  const [nominationEnd, setNominationEnd] = useState('');
-  const [votingStart, setVotingStart] = useState('');
-  const [votingEnd, setVotingEnd] = useState('');
-  const [positions, setPositions] = useState([{ name: '', description: '', max_votes: 1 }]);
-  const [saving, setSaving] = useState(false);
+export default function AdminElectionsPage() {
+  const router = useRouter();
+  const [elections, setElections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<any>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  function addPosition() {
-    setPositions([...positions, { name: '', description: '', max_votes: 1 }]);
-  }
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [nominationStart, setNominationStart] = useState("");
+  const [nominationEnd, setNominationEnd] = useState("");
+  const [votingStart, setVotingStart] = useState("");
+  const [votingEnd, setVotingEnd] = useState("");
+  const [positions, setPositions] = useState([{ name: "", max_votes: 1 }]);
 
-  function removePosition(i: number) {
-    if (positions.length > 1) setPositions(positions.filter((_, idx) => idx !== i));
-  }
+  const load = async () => {
+    setLoading(true);
+    try { const data = await adminGetElections(); setElections(Array.isArray(data) ? data : []); }
+    catch { setElections([]); }
+    setLoading(false);
+  };
 
-  function updatePosition(i: number, field: string, value: any) {
-    const updated = [...positions];
-    (updated[i] as any)[field] = value;
-    setPositions(updated);
-  }
+  useEffect(() => { load(); }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name || !nominationStart || !nominationEnd || !votingStart || !votingEnd) {
-      onError('Please fill in all required fields');
-      return;
-    }
-    if (positions.some((p) => !p.name)) {
-      onError('All positions must have a name');
-      return;
-    }
+  const resetForm = () => {
+    setName(""); setDescription("");
+    setNominationStart(""); setNominationEnd("");
+    setVotingStart(""); setVotingEnd("");
+    setPositions([{ name: "", max_votes: 1 }]);
+  };
 
-    setSaving(true);
+  const handleCreate = async () => {
+    setActionLoading(true);
     try {
-      await createElection({
-        name,
-        description: description || null,
-        nomination_start: new Date(nominationStart).toISOString(),
-        nomination_end: new Date(nominationEnd).toISOString(),
-        voting_start: new Date(votingStart).toISOString(),
-        voting_end: new Date(votingEnd).toISOString(),
-        positions: positions.map((p) => ({
-          name: p.name,
-          description: p.description || null,
-          max_votes: p.max_votes,
-        })),
+      await adminCreateElection({
+        name, description,
+        nomination_start: nominationStart, nomination_end: nominationEnd,
+        voting_start: votingStart, voting_end: votingEnd,
+        positions: positions.filter((p) => p.name.trim()),
       });
-      onCreated();
-    } catch (err: any) {
-      onError(err?.message || 'Failed to create election');
-    } finally {
-      setSaving(false);
-    }
-  }
+      toast.success("Election created");
+      setCreateOpen(false);
+      resetForm();
+      load();
+    } catch (err) { toast.error(extractError(err)); }
+    setActionLoading(false);
+  };
+
+  const handleTransition = async () => {
+    if (!confirmAction) return;
+    setActionLoading(true);
+    try {
+      await adminUpdateStatus(confirmAction.electionId, confirmAction.next);
+      toast.success("Status updated");
+      setConfirmAction(null);
+      load();
+    } catch (err) { toast.error(extractError(err)); }
+    setActionLoading(false);
+  };
+
+  if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 
   return (
-    <div className="card">
-      <div className="card-hd">
-        <div className="card-title">Create New Election</div>
+    <div className="space-y-4 animate-fade-up">
+      <div className="flex justify-end">
+        <Button onClick={() => setCreateOpen(true)} leftIcon={<FiPlus size={14} />}>Create Election</Button>
       </div>
-      <form onSubmit={handleSubmit} style={{ padding: 24 }}>
-        <div style={{ display: 'grid', gap: 16, maxWidth: 600 }}>
-          <div className="form-group">
-            <label className="form-label">Election Name <span className="req">*</span></label>
-            <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Student Council 2026" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Description</label>
-            <textarea className="form-control" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
-          </div>
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Nomination Start <span className="req">*</span></label>
-              <input className="form-control" type="datetime-local" value={nominationStart} onChange={(e) => setNominationStart(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Nomination End <span className="req">*</span></label>
-              <input className="form-control" type="datetime-local" value={nominationEnd} onChange={(e) => setNominationEnd(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Voting Start <span className="req">*</span></label>
-              <input className="form-control" type="datetime-local" value={votingStart} onChange={(e) => setVotingStart(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Voting End <span className="req">*</span></label>
-              <input className="form-control" type="datetime-local" value={votingEnd} onChange={(e) => setVotingEnd(e.target.value)} />
-            </div>
-          </div>
-        </div>
 
-        <div style={{ marginTop: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16 }}>Positions</h3>
-            <button type="button" className="btn btn-sm btn-outline" onClick={addPosition}>+ Add Position</button>
-          </div>
-          {positions.map((pos, i) => (
-            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-end' }}>
-              <div className="form-group" style={{ flex: 2 }}>
-                <label className="form-label" style={{ fontSize: 12 }}>Name <span className="req">*</span></label>
-                <input className="form-control" style={{ padding: '10px 14px' }} value={pos.name} onChange={(e) => updatePosition(i, 'name', e.target.value)} placeholder="e.g. President" />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label" style={{ fontSize: 12 }}>Max Votes</label>
-                <input className="form-control" style={{ padding: '10px 14px' }} type="number" min={1} max={10} value={pos.max_votes} onChange={(e) => updatePosition(i, 'max_votes', parseInt(e.target.value) || 1)} />
-              </div>
-              {positions.length > 1 && (
-                <button type="button" className="btn btn-sm" style={{ background: 'transparent', color: 'var(--crimson)', padding: '10px', flexShrink: 0 }} onClick={() => removePosition(i)}>✕</button>
-              )}
-            </div>
+      {elections.length === 0 ? (
+        <Card>
+          <CardBody>
+            <EmptyState title="No elections" message="Create your first election to get started."
+              action={<Button onClick={() => setCreateOpen(true)} leftIcon={<FiPlus size={14} />}>Create Election</Button>} />
+          </CardBody>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {elections.map((e: any) => (
+            <Card key={e.id}>
+              <CardBody>
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <div>
+                    <h3 className="font-[var(--font-display)] text-sm font-bold text-white">{e.name}</h3>
+                    {e.description && <div className="text-xs text-text-3 mt-0.5">{e.description}</div>}
+                  </div>
+                  <Badge status={e.status} />
+                </div>
+
+                {/* Stage stepper */}
+                <ElectionStepper status={e.status} />
+
+                {/* Dates */}
+                <div className="text-xs text-text-3 space-y-0.5 mb-3">
+                  <div>Nominations: {fmtDateTime(e.nomination_start)} — {fmtDateTime(e.nomination_end)}</div>
+                  <div>Voting: {fmtDateTime(e.voting_start)} — {fmtDateTime(e.voting_end)}</div>
+                </div>
+
+                {/* Positions chips */}
+                {e.positions?.length > 0 && (
+                  <div className="flex gap-1.5 mb-3 flex-wrap">
+                    {e.positions.map((p: any) => (
+                      <span key={p.id ?? p.name} className="px-2 py-0.5 bg-surface-2 border border-border rounded-full text-[10px] text-text-2">
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions row */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {e.status === "voting_open" && <ElectionCountdown endTime={e.voting_end} />}
+
+                  {(() => {
+                    const hint = nextTransitionLabel(e);
+                    return hint ? (
+                      <span className="text-[11px] text-text-3 font-[var(--font-display)]">{hint}</span>
+                    ) : null;
+                  })()}
+
+                  {e.status === "closed" && (
+                    <Button size="sm" variant="success" leftIcon={<FiCheck size={12} />}
+                      onClick={() => setConfirmAction({ electionId: e.id, next: "results_published", label: "Publish Results", variant: "success" })}>
+                      Publish Results
+                    </Button>
+                  )}
+
+                  {e.status === "results_published" && (
+                    <Button size="sm" variant="primary-cyan" leftIcon={<FiBarChart2 size={12} />}
+                      onClick={() => router.push("/admin/results")}>
+                      View Results
+                    </Button>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
           ))}
         </div>
+      )}
 
-        <div style={{ marginTop: 24, display: 'flex', gap: 8 }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Create Election'}</button>
+      {/* Create Modal */}
+      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} title="Create Election" size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => { setCreateOpen(false); resetForm(); }}>Cancel</Button>
+            <Button onClick={handleCreate} isLoading={actionLoading}>Create</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Election Name" name="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="General Election 2025" />
+          <Textarea label="Description" name="desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Optional description..." />
+
+          <div>
+            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Nomination Period</div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Start" name="nom-start" type="datetime-local" value={nominationStart} onChange={(e) => setNominationStart(e.target.value)} required />
+              <Input label="End"   name="nom-end"   type="datetime-local" value={nominationEnd}   onChange={(e) => setNominationEnd(e.target.value)}   required />
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Voting Period</div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Start" name="vote-start" type="datetime-local" value={votingStart} onChange={(e) => setVotingStart(e.target.value)} required />
+              <Input label="End"   name="vote-end"   type="datetime-local" value={votingEnd}   onChange={(e) => setVotingEnd(e.target.value)}   required />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2">Positions</span>
+              <Button size="sm" variant="ghost" onClick={() => setPositions([...positions, { name: "", max_votes: 1 }])}>+ Add</Button>
+            </div>
+            {positions.map((p, i) => (
+              <div key={i} className="flex gap-2 mb-2 items-end">
+                <div className="flex-1">
+                  <Input name={`pos-${i}`} placeholder="e.g. President" value={p.name}
+                    onChange={(e) => { const next = [...positions]; next[i].name = e.target.value; setPositions(next); }} />
+                </div>
+                <div className="w-20">
+                  <Input name={`max-${i}`} type="number" value={p.max_votes}
+                    onChange={(e) => { const next = [...positions]; next[i].max_votes = Number(e.target.value); setPositions(next); }} />
+                </div>
+                {positions.length > 1 && (
+                  <button onClick={() => setPositions(positions.filter((_, j) => j !== i))}
+                    className="text-danger bg-transparent border-none cursor-pointer pb-2.5">
+                    <FiXIcon size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="text-xs text-text-3 mt-1">Second column = max winners per position</div>
+          </div>
         </div>
-      </form>
+      </Modal>
+
+      <ConfirmDialog isOpen={!!confirmAction} onClose={() => setConfirmAction(null)} onConfirm={handleTransition}
+        title="Confirm Status Change" message={`Change election status to "${confirmAction?.label}"?`}
+        confirmLabel={confirmAction?.label ?? "Confirm"} variant="warning" isLoading={actionLoading} />
     </div>
   );
 }

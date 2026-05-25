@@ -17,7 +17,7 @@ Make sure you have installed:
 ## 1. Clone the Repository
 
 ```bash
-git clone <your-github-repo-url>
+git clone https://github.com/shawinCreates/iVote.git
 cd iVote/backend
 ```
 
@@ -29,30 +29,27 @@ pip install -r requirements.txt
 
 ## 3. Configure Environment Variables
 
-Create a `.env` file inside the `backend` folder and set the following variables. Cloudinary is required for uploads; the app will not start without it.
+Create .env file inside backend folder and set following variable
 
 ```bash
-DATABASE_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/ivotedb
-SECRET_KEY=your-secret-key
+Database_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/ivotedb
+SECRET_KEY=ivote-super-secret-key-2025-campus-election-system
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
-CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
-CORS_ORIGINS=http://localhost:3000
 ```
 
-- Replace `<username>` and `<password>` with your PostgreSQL credentials.
-- Replace `<api_key>`, `<api_secret>`, and `<cloud_name>` with your Cloudinary credentials.
+- Replace <username> and <password> with your PostgreSQL credentials.
 
 #### Note:
 
-- Create the `ivotedb` database in PostgreSQL before running.
+- First create ivotedb in postgresql using pgAdmin
 
-## 4. Run locally
+## 4. Run Database Migration
+
+Apply Alembic migrations to create all tables. Run following command once you are in backend folder.
 
 ```bash
-uvicorn app.main:app --reload
+python -m alembic init alembic   ## Not needed as alembic is already initialized
+python -m alembic revision --autogenerate -m "initial"
+python -m alembic upgrade head
 ```
-
-## 5. Production note
-
-For production hosting, set `NEXT_PUBLIC_API_BASE_URL` in your frontend deployment to your backend URL and update `CORS_ORIGINS` accordingly. Do not commit any secret values.

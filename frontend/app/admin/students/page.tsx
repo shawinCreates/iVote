@@ -1,121 +1,151 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import {
-  fetchAllStudents,
-  fetchPendingStudents,
-  verifyStudent,
-  rejectStudent,
-} from '../../../lib/api';
+"use client";
+import { useState, useEffect } from "react";
+import { getAllStudents, getPendingStudents, verifyStudent, rejectStudent, openProtectedFile, getStudentIdCardUrl, getStudentPhotoUrl, extractError } from "@/lib/api";
+import { fmtDateTime } from "@/lib/formatters";
+import { Card, CardBody } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/FormControls";
+import Modal from "@/components/ui/Modal";
+import { Spinner } from "@/components/ui/Spinner";
+import Pagination from "@/components/shared/Pagination";
+import EmptyState from "@/components/shared/EmptyState";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import ProtectedImage from "@/components/shared/ProtectedImage";
+import { usePagination } from "@/hooks/useCountUp";
+import { FiSearch, FiEye, FiCheck, FiX, FiFileText } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function AdminStudentsPage() {
-  const [tab, setTab] = useState<'pending' | 'all'>('pending');
+  const [tab, setTab] = useState<"pending" | "all">("pending");
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [rejectModal, setRejectModal] = useState<number | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
+  const [search, setSearch] = useState("");
+  const [detailStudent, setDetailStudent] = useState<any>(null);
+  const [rejectDialog, setRejectDialog] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [confirmVerify, setConfirmVerify] = useState<any>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  async function load() {
+  const load = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const data = tab === 'pending' ? await fetchPendingStudents() : await fetchAllStudents();
-      setStudents(data || []);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load students');
-    } finally {
-      setLoading(false);
-    }
-  }
+      const data = tab === "pending" ? await getPendingStudents() : await getAllStudents();
+      setStudents(Array.isArray(data) ? data : []);
+    } catch { setStudents([]); }
+    setLoading(false);
+  };
 
   useEffect(() => { load(); }, [tab]);
 
-  async function onVerify(id: number) {
+  const filtered = students.filter((s) => {
+    const q = search.toLowerCase();
+    return !q || [s.full_name, s.email, s.tu_registration_number, s.faculty].some((f) => f?.toLowerCase().includes(q));
+  });
+
+  const { page, totalPages, paged, total, setPage } = usePagination(filtered, 10);
+
+  const isPending = (s: any) => !s.is_verified && s.registration_stage === "complete";
+
+  const handleVerify = async (id: number) => {
+    setActionLoading(true);
     try {
       await verifyStudent(id);
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-    } catch (err: any) {
-      setError(err?.message);
-    }
-  }
+      toast.success("Student verified");
+      setConfirmVerify(null);
+      setDetailStudent(null);
+      load();
+    } catch (err) { toast.error(extractError(err)); }
+    setActionLoading(false);
+  };
 
-  async function onReject(id: number) {
+  const handleReject = async () => {
+    if (!rejectDialog) return;
+    setActionLoading(true);
     try {
-      await rejectStudent(id, rejectReason);
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      setRejectModal(null);
-      setRejectReason('');
-    } catch (err: any) {
-      setError(err?.message);
-    }
-  }
+      await rejectStudent(rejectDialog.id, rejectReason || null);
+      toast.success("Student rejected");
+      setRejectDialog(null);
+      setRejectReason("");
+      setDetailStudent(null);
+      load();
+    } catch (err) { toast.error(extractError(err)); }
+    setActionLoading(false);
+  };
 
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
+    <div className="space-y-4 animate-fade-up">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex gap-1">
+          {(["pending", "all"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-2 text-[11px] uppercase tracking-wider font-[var(--font-display)] font-bold rounded-[var(--radius-md)] border cursor-pointer transition-all
+                ${tab === t ? "bg-cyan-dim border-cyan text-cyan" : "bg-surface-2 border-border text-text-3 hover:text-white"}`}>
+              {t === "pending" ? "Pending" : "All Students"}
+            </button>
+          ))}
         </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        <button className={`btn ${tab === 'pending' ? 'btn-primary' : 'btn-outline'} btn-sm`} onClick={() => setTab('pending')}>Pending</button>
-        <button className={`btn ${tab === 'all' ? 'btn-primary' : 'btn-outline'} btn-sm`} onClick={() => setTab('all')}>All Students</button>
+        <Input name="search" placeholder="Search students..." value={search}
+          onChange={(e) => setSearch(e.target.value)} leftIcon={<FiSearch size={14} />} className="w-full sm:w-64" />
       </div>
 
-      <div className="card">
-        <div className="card-hd">
-          <div className="card-title">{tab === 'pending' ? 'Pending Verifications' : 'All Students'}</div>
-          <span style={{ fontSize: 13, color: 'var(--g400)' }}>{students.length} student(s)</span>
-        </div>
-        <div style={{ padding: '0 18px 18px' }}>
+      {/* Table */}
+      <Card>
+        <CardBody className="p-0">
           {loading ? (
-            <div className="skeleton" style={{ height: 300, borderRadius: 18 }} />
-          ) : students.length === 0 ? (
-            <div className="empty">
-              <div className="empty-title">No {tab === 'pending' ? 'pending' : ''} students</div>
-            </div>
+            <div className="flex justify-center py-12"><Spinner /></div>
+          ) : paged.length === 0 ? (
+            <EmptyState
+              title="No students found"
+              message={search ? "Try a different search." : tab === "pending" ? "No pending verifications." : "No students registered yet."} />
           ) : (
-            <div className="table-wrap">
-              <table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>TU Number</th>
-                    <th>Faculty</th>
-                    <th>Year</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Student</th>
+                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Reg. No.</th>
+                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Faculty</th>
+                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Status</th>
+                    <th className="text-right px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {students.map((s) => (
-                    <tr key={s.id}>
-                      <td><strong>{s.full_name}</strong></td>
-                      <td>{s.email}</td>
-                      <td style={{ fontSize: 13 }}>{s.tu_registration_number}</td>
-                      <td>{s.faculty}</td>
-                      <td>Year {s.year}</td>
-                      <td>
-                        {s.is_verified
-                          ? <span className="badge badge-results_published">Verified</span>
-                          : s.is_active
-                            ? <span className="badge badge-nomination_open">Pending</span>
-                            : <span className="badge badge-closed">Rejected</span>}
+                <tbody className="divide-y divide-border">
+                  {paged.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-surface-2/50 transition-colors">
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <ProtectedImage
+                            url={getStudentPhotoUrl(s.id)}
+                            alt={s.full_name ?? ""}
+                            initials={s.full_name ?? s.email}
+                            className="w-9 h-9 rounded-full shrink-0"
+                          />
+                          <div>
+                            <div className="font-medium text-text-1">{s.full_name ?? "—"}</div>
+                            <div className="text-xs text-text-3">{s.email}</div>
+                          </div>
+                        </div>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          {!s.is_verified && s.is_active && (
+                      <td className="px-5 py-3 font-[var(--font-mono)] text-xs text-text-2">{s.tu_registration_number ?? "—"}</td>
+                      <td className="px-5 py-3">
+                        <div className="text-sm text-text-2">{s.faculty ?? "—"}</div>
+                        <div className="text-xs text-text-3">
+                          {[s.program, s.year != null ? `Year ${s.year}` : null, s.semester != null ? `Sem ${s.semester}` : null].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge status={s.is_verified ? "verified" : s.registration_stage === "complete" ? "pending" : "unverified"} />
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex gap-1.5 justify-end flex-wrap">
+                          <Button size="sm" variant="ghost" onClick={() => setDetailStudent(s)} leftIcon={<FiEye size={12} />}>View</Button>
+                          {isPending(s) && (
                             <>
-                              <button className="btn btn-sm btn-primary" onClick={() => onVerify(s.id)}>✓ Verify</button>
-                              <button className="btn btn-sm btn-outline" style={{ borderColor: 'var(--crimson)', color: 'var(--crimson)' }} onClick={() => setRejectModal(s.id)}>✕ Reject</button>
+                              <Button size="sm" variant="success" onClick={() => setConfirmVerify(s)} leftIcon={<FiCheck size={12} />}>Accept</Button>
+                              <Button size="sm" variant="danger" onClick={() => setRejectDialog(s)} leftIcon={<FiX size={12} />}>Reject</Button>
                             </>
-                          )}
-                          {!s.is_active && (
-                            <span style={{ fontSize: 12, color: 'var(--g400)' }}>{s.rejection_reason || 'Rejected'}</span>
                           )}
                         </div>
                       </td>
@@ -125,28 +155,119 @@ export default function AdminStudentsPage() {
               </table>
             </div>
           )}
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      {rejectModal && (
-        <div className="spinner-overlay" style={{ cursor: 'pointer' }} onClick={() => setRejectModal(null)}>
-          <div className="auth-card" style={{ maxWidth: 420, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: 20 }}>Reject Student</h3>
-            <p style={{ fontSize: 13, color: 'var(--g600)' }}>Provide a reason for rejection (optional):</p>
-            <textarea
-              className="form-control"
-              rows={3}
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Reason..."
-            />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setRejectModal(null)}>Cancel</button>
-              <button className="btn btn-sm" style={{ background: 'var(--crimson)', color: 'white' }} onClick={() => onReject(rejectModal)}>Confirm Reject</button>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
+
+      {/* Detail Modal */}
+      <Modal
+        isOpen={!!detailStudent}
+        onClose={() => setDetailStudent(null)}
+        title="Student Details"
+        size="lg"
+        footer={
+          detailStudent && isPending(detailStudent) ? (
+            <>
+              <Button variant="ghost" onClick={() => setDetailStudent(null)}>Close</Button>
+              <Button variant="danger" onClick={() => setRejectDialog(detailStudent)} leftIcon={<FiX size={12} />}>Reject</Button>
+              <Button variant="success" onClick={() => setConfirmVerify(detailStudent)} leftIcon={<FiCheck size={12} />}>Accept</Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={() => setDetailStudent(null)}>Close</Button>
+          )
+        }
+      >
+        {detailStudent && (
+          <div className="space-y-6">
+            {/* Profile photo */}
+            <div className="flex justify-center">
+              <ProtectedImage
+                url={getStudentPhotoUrl(detailStudent.id)}
+                alt={detailStudent.full_name ?? ""}
+                initials={detailStudent.full_name ?? detailStudent.email}
+                className="w-32 h-32 rounded-full"
+              />
+            </div>
+
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+              {[
+                ["Name", detailStudent.full_name],
+                ["Email", detailStudent.email],
+                ["Reg. Number", detailStudent.tu_registration_number],
+                ["Faculty", detailStudent.faculty],
+                ["Program", detailStudent.program ?? "—"],
+                ["Year", detailStudent.year != null ? `Year ${detailStudent.year}` : "—"],
+                ["Semester", detailStudent.semester != null ? `Semester ${detailStudent.semester}` : "—"],
+                ["Registered", fmtDateTime(detailStudent.created_at)],
+                ["Status", null],
+              ].map(([label, val]) => (
+                <div key={label as string}>
+                  <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mb-1">{label}</div>
+                  {label === "Status" ? (
+                    <Badge status={detailStudent.is_verified ? "verified" : detailStudent.registration_stage === "complete" ? "pending" : "unverified"} />
+                  ) : (
+                    <div className={`text-text-1 ${label === "Reg. Number" ? "font-[var(--font-mono)] text-xs" : ""}`}>{val as string}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* ID Card preview */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">ID Card</div>
+                <Button size="sm" variant="ghost" leftIcon={<FiFileText size={12} />}
+                  onClick={() => openProtectedFile(getStudentIdCardUrl(detailStudent.id))}>Open Full Size</Button>
+              </div>
+              <div className="rounded-[var(--radius-md)] overflow-hidden border border-border bg-surface-2">
+                <ProtectedImage
+                  url={getStudentIdCardUrl(detailStudent.id)}
+                  alt="ID Card"
+                  initials="ID"
+                  contain
+                  className="w-full h-52"
+                />
+              </div>
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* Confirm Verify */}
+      <ConfirmDialog
+        isOpen={!!confirmVerify}
+        onClose={() => setConfirmVerify(null)}
+        onConfirm={() => confirmVerify && handleVerify(confirmVerify.id)}
+        title="Verify Student"
+        message={`Verify ${confirmVerify?.full_name ?? confirmVerify?.email}? This will grant them voting access.`}
+        confirmLabel="Verify"
+        variant="warning"
+        isLoading={actionLoading}
+      />
+
+      {/* Reject Dialog */}
+      <Modal
+        isOpen={!!rejectDialog}
+        onClose={() => { setRejectDialog(null); setRejectReason(""); }}
+        title="Reject Student"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => { setRejectDialog(null); setRejectReason(""); }}>Cancel</Button>
+            <Button variant="danger" onClick={handleReject} isLoading={actionLoading} leftIcon={<FiX size={12} />}>Reject</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="text-sm text-text-2">
+            Reject <strong className="text-white">{rejectDialog?.full_name ?? rejectDialog?.email}</strong>?
+          </div>
+          <Textarea label="Reason (optional)" name="reason" value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)} rows={3} placeholder="Reason for rejection..." />
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

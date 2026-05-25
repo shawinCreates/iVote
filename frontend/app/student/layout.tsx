@@ -1,21 +1,19 @@
-import AppShell from '../../components/AppShell';
-
-export const metadata = {
-  title: 'Student Portal — iVote'
-};
-
-const navItems = [
-  { label: 'Dashboard', href: '/student/dashboard' },
-  { label: 'Candidates', href: '/student/candidates' },
-  { label: 'Vote', href: '/student/vote' },
-  { label: 'Results', href: '/student/results' },
-  { label: 'My Candidacy', href: '/student/candidacy' }
-];
+"use client";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import AppShell from "@/components/AppShell";
+import { FullPageSpinner } from "@/components/ui/Spinner";
+import { useEffect } from "react";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AppShell pageTitle="My Dashboard" sidebarRole="Student Portal" navItems={navItems}>
-      {children}
-    </AppShell>
-  );
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) router.push("/");
+    if (!isLoading && isAdmin) router.push("/admin/dashboard");
+  }, [isLoading, isAuthenticated, isAdmin, router]);
+
+  if (isLoading || !isAuthenticated) return <FullPageSpinner />;
+  return <AppShell>{children}</AppShell>;
 }

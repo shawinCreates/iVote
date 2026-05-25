@@ -1,158 +1,282 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { api, applyForCandidacy } from '../../../lib/api';
+"use client";
+import { useState, useEffect } from "react";
+import { getMyCandidacy, getElections, applyForCandidacy, getCandidatePhotoUrl, extractError } from "@/lib/api";
+import { fmtDateTime } from "@/lib/formatters";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardBody } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Select, Textarea, FileUpload } from "@/components/ui/FormControls";
+import Modal from "@/components/ui/Modal";
+import { Spinner } from "@/components/ui/Spinner";
+import EmptyState from "@/components/shared/EmptyState";
+import Alert from "@/components/ui/Alert";
+import ProtectedImage from "@/components/shared/ProtectedImage";
+import { FiPlus, FiUser } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function StudentCandidacyPage() {
-  const router = useRouter();
+  const { user } = useAuth();
+  const [candidacies, setCandidacies] = useState<any[]>([]);
   const [elections, setElections] = useState<any[]>([]);
-  const [selectedElection, setSelectedElection] = useState<number | null>(null);
-  const [positions, setPositions] = useState<any[]>([]);
-  const [positionId, setPositionId] = useState<number | null>(null);
-  const [manifesto, setManifesto] = useState('');
-  const [party, setParty] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState("");
+  const [manifesto, setManifesto] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api('/api/elections');
-        const open = (data || []).filter((e: any) => e.status === 'nomination_open' && !e.candidates_locked);
-        setElections(open);
-      } catch (err: any) {
-        setError(err?.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+  const [profileCandidate, setProfileCandidate] = useState<any>(null);
 
-  useEffect(() => {
-    if (!selectedElection) { setPositions([]); return; }
-    const election = elections.find((e) => e.id === selectedElection);
-    setPositions(election?.positions || []);
-    setPositionId(null);
-  }, [selectedElection, elections]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!positionId || !manifesto.trim()) {
-      setError('Please select a position and write your manifesto');
-      return;
-    }
-    if (!photo) {
-      setError('Please upload a profile photo');
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const load = async () => {
+    setLoading(true);
     try {
-      const form = new FormData();
-      form.append('position_id', String(positionId));
-      form.append('manifesto', manifesto);
-      form.append('party_affiliation', party || '');
-      form.append('photo', photo);
-      await applyForCandidacy(form);
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit application');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+      const [c, e] = await Promise.all([getMyCandidacy().catch(() => []), getElections().catch(() => [])]);
+      setCandidacies(Array.isArray(c) ? c : c ? [c] : []);
+      setElections(Array.isArray(e) ? e : []);
+    } catch {}
+    setLoading(false);
+  };
 
-  if (success) {
-    return (
-      <div className="card">
-        <div className="empty" style={{ padding: 48 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-          <div className="empty-title" style={{ fontSize: 20 }}>Application Submitted!</div>
-          <div className="empty-text" style={{ marginBottom: 18 }}>Your candidacy is pending approval by the Election Head.</div>
-          <button className="btn btn-primary" onClick={() => router.push('/student/dashboard')}>Back to Dashboard</button>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, []);
+
+  const nominationElections = elections.filter((el: any) => el.status === "nomination_open");
+
+  const allOpenPositions = nominationElections.flatMap((e: any) =>
+    (e.positions ?? []).map((p: any) => ({ value: String(p.id), label: `${p.name} — ${e.name}` }))
+  );
+
+  const appliedPositionIds = new Set(candidacies.map((c: any) => c.position?.id).filter(Boolean));
+  const remainingPositions = allOpenPositions.filter((p) => !appliedPositionIds.has(Number(p.value)));
+
+  const electionNameMap: Record<number, string> = Object.fromEntries(
+    elections.map((e: any) => [e.id, e.name])
+  );
+
+  const electionStatusMap: Record<number, string> = Object.fromEntries(
+    elections.map((e: any) => [e.id, e.status])
+  );
+
+  const hasApproved = candidacies.some((c) => c.approval_status === "approved");
+  const hasPending  = candidacies.some((c) => c.approval_status === "pending");
+  const hasAny      = candidacies.length > 0;
+
+  const handleApply = async () => {
+    if (!selectedPosition) { setError("Please select a position."); return; }
+    setError(""); setSubmitting(true);
+    try {
+      await applyForCandidacy(Number(selectedPosition), manifesto, photoFile);
+      toast.success("Application submitted!");
+      setApplyOpen(false);
+      setSelectedPosition(""); setManifesto(""); setPhotoFile(null);
+      load();
+    } catch (err) { setError(extractError(err)); }
+    setSubmitting(false);
+  };
+
+  const openApply = () => {
+    setSelectedPosition(""); setManifesto(""); setPhotoFile(null); setError("");
+    setApplyOpen(true);
+  };
+
+  if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
+    <div className="space-y-4 animate-fade-up">
+      {/* Status banner */}
+      {hasAny && (
+        hasPending ? (
+          <Alert type="info">
+            Your application is under review. You will be notified once a decision is made.
+          </Alert>
+        ) : hasApproved ? (
+          <Alert type="success">
+            Your candidacy has been approved — your name will appear on the ballot.
+          </Alert>
+        ) : (
+          <Alert type="danger">
+            Your application was not approved.
+            {remainingPositions.length > 0 && " You may apply for a different position below."}
+          </Alert>
+        )
+      )}
+
+      <div className="flex justify-end">
+        {remainingPositions.length > 0 && !hasApproved && !hasPending && (
+          <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply for Candidacy</Button>
+        )}
+        {!hasAny && allOpenPositions.length > 0 && (
+          <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply for Candidacy</Button>
+        )}
+      </div>
+
+      {candidacies.length === 0 ? (
+        <Card><CardBody>
+          <EmptyState title="No applications" message="You haven't applied for any candidacy yet."
+            action={allOpenPositions.length > 0
+              ? <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply Now</Button>
+              : undefined} />
+        </CardBody></Card>
+      ) : (
+        <div className="space-y-3">
+          {candidacies.map((c: any) => {
+            const electionName = c.election_id ? (electionNameMap[c.election_id] ?? `Election #${c.election_id}`) : "";
+            const resultsPublished = c.election_id && electionStatusMap[c.election_id] === "results_published";
+            return (
+              <Card key={c.id}>
+                <CardBody>
+                  <div className="flex items-start gap-4">
+                    {/* Avatar */}
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-border shrink-0">
+                      <ProtectedImage
+                        url={getCandidatePhotoUrl(c.id)}
+                        alt={c.user?.full_name ?? user?.full_name ?? ""}
+                        initials={c.user?.full_name ?? user?.full_name ?? "?"}
+                        className="w-full h-full"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <span className="font-[var(--font-display)] text-sm font-bold text-white">
+                          {c.position?.name ?? "Position"}
+                        </span>
+                        <Badge status={c.approval_status ?? "pending"} />
+                      </div>
+                      <div className="text-xs text-text-3">
+                        {electionName}
+                        {c.applied_at ? ` · Applied ${fmtDateTime(c.applied_at)}` : ""}
+                      </div>
+                      {c.manifesto && (
+                        <div className="text-sm text-text-2 mt-2 max-w-[520px] line-clamp-2">{c.manifesto}</div>
+                      )}
+                      {resultsPublished && c.votes_received != null && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--radius-sm)] bg-gold/10 border border-gold/20">
+                          <span className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Votes Received</span>
+                          <span className="font-[var(--font-mono)] text-sm font-bold text-gold">{c.votes_received}</span>
+                        </div>
+                      )}
+                      {c.rejection_reason && (
+                        <Alert type="danger" className="mt-2">Rejected: {c.rejection_reason}</Alert>
+                      )}
+                    </div>
+
+                    <Button variant="ghost" size="sm" onClick={() => setProfileCandidate(c)}
+                      leftIcon={<FiUser size={12} />}>
+                      View Profile
+                    </Button>
+                  </div>
+                </CardBody>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      <div className="card">
-        <div className="card-hd">
-          <div className="card-title">Apply for Candidacy</div>
+      {/* Apply modal */}
+      <Modal isOpen={applyOpen} onClose={() => setApplyOpen(false)} title="Apply for Candidacy" size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setApplyOpen(false)}>Cancel</Button>
+            <Button onClick={handleApply} isLoading={submitting}>Submit Application</Button>
+          </>
+        }>
+        <div className="space-y-4">
+          {error && <Alert type="danger">{error}</Alert>}
+          <Select label="Position" name="position" value={selectedPosition}
+            onChange={(e) => setSelectedPosition(e.target.value)}
+            options={remainingPositions.length > 0 ? remainingPositions : allOpenPositions} placeholder="Select a position" required />
+          <FileUpload
+            label="Campaign Photo"
+            accept="image/*"
+            maxSize={5 * 1024 * 1024}
+            onFile={setPhotoFile}
+            preview
+            hint="Optional · Max 5 MB · Your photo will be shown to voters"
+          />
+          <Textarea label="Manifesto" name="manifesto" value={manifesto}
+            onChange={(e) => setManifesto(e.target.value)}
+            rows={6} maxLength={2000} placeholder="Describe your vision and plans..." required />
         </div>
-        <form onSubmit={handleSubmit} style={{ padding: 24, maxWidth: 600 }}>
-          {loading ? (
-            <div className="skeleton" style={{ height: 200, borderRadius: 18 }} />
-          ) : elections.length === 0 ? (
-            <div className="empty" style={{ padding: 24 }}>
-              <div className="empty-title">No elections open for nominations</div>
-              <div className="empty-text">Check back when nominations are open</div>
-            </div>
-          ) : (
-            <>
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label className="form-label">Election <span className="req">*</span></label>
-                <select className="form-control" value={selectedElection || ''} onChange={(e) => setSelectedElection(Number(e.target.value) || null)}>
-                  <option value="">Select an election…</option>
-                  {elections.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
+      </Modal>
+
+      {/* Full profile modal */}
+      <Modal isOpen={!!profileCandidate} onClose={() => setProfileCandidate(null)}
+        title="My Candidacy Profile" size="md">
+        {profileCandidate && (() => {
+          const c = profileCandidate;
+          const u = c.user ?? user ?? {};
+          const electionName = c.election_id ? (electionNameMap[c.election_id] ?? `Election #${c.election_id}`) : "—";
+          const resultsPublished = c.election_id && electionStatusMap[c.election_id] === "results_published";
+          return (
+            <div className="space-y-5">
+              {/* Photo */}
+              <div className="flex justify-center">
+                <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-border">
+                  <ProtectedImage
+                    url={getCandidatePhotoUrl(c.id)}
+                    alt={u.full_name ?? ""}
+                    initials={u.full_name ?? "?"}
+                    className="w-full h-full"
+                  />
+                </div>
               </div>
 
-              {positions.length > 0 && (
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label">Position <span className="req">*</span></label>
-                  <select className="form-control" value={positionId || ''} onChange={(e) => setPositionId(Number(e.target.value) || null)}>
-                    <option value="">Select a position…</option>
-                    {positions.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} (max {p.max_votes} vote(s))</option>
-                    ))}
-                  </select>
+              {/* Name + status */}
+              <div className="text-center">
+                <div className="font-[var(--font-display)] text-base font-bold text-white mb-1">
+                  {u.full_name ?? "—"}
                 </div>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <Badge status={c.approval_status ?? "pending"} />
+                  {resultsPublished && c.votes_received != null && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--radius-sm)] bg-gold/10 border border-gold/20">
+                      <span className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Votes</span>
+                      <span className="font-[var(--font-mono)] text-sm font-bold text-gold">{c.votes_received}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Academic details */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  ["Position",  c.position?.name ?? "—"],
+                  ["Election",  electionName],
+                  ["Faculty",   u.faculty  ?? "—"],
+                  ["Program",   u.program  ?? "—"],
+                  ["Year",      u.year     != null ? `Year ${u.year}`     : "—"],
+                  ["Semester",  u.semester != null ? `Semester ${u.semester}` : "—"],
+                  ["Applied",   c.applied_at ? fmtDateTime(c.applied_at) : "—"],
+                  ["Reg. No.",  u.tu_registration_number ?? "—"],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mb-0.5">{label}</div>
+                    <div className="text-text-1 truncate">{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Rejection reason */}
+              {c.rejection_reason && (
+                <Alert type="danger">Rejected: {c.rejection_reason}</Alert>
               )}
 
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label className="form-label">Manifesto <span className="req">*</span></label>
-                <textarea className="form-control" rows={5} value={manifesto} onChange={(e) => setManifesto(e.target.value)} placeholder="Tell voters why they should vote for you…" maxLength={5000} />
-                <div style={{ fontSize: 12, color: 'var(--g400)', textAlign: 'right' }}>{manifesto.length}/5000</div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label className="form-label">Party Affiliation</label>
-                <input className="form-control" value={party} onChange={(e) => setParty(e.target.value)} placeholder="e.g. Progressive Alliance (optional)" />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label className="form-label">Profile Photo <span className="req">*</span></label>
-                <div className="file-zone">
-                  <input type="file" accept="image/jpeg,image/png" onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
-                  <div className="file-zone-text">{photo ? photo.name : 'Click to upload your photo (JPG or PNG, max 5MB)'}</div>
+              {/* Manifesto */}
+              {c.manifesto && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] font-bold mb-2">Manifesto</div>
+                  <div className="text-sm text-text-1 bg-surface-1 border border-border rounded-[var(--radius-md)] p-4 leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
+                    {c.manifesto}
+                  </div>
                 </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit Application'}
-              </button>
-            </>
-          )}
-        </form>
-      </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

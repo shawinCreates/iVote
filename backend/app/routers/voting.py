@@ -1,100 +1,126 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from typing import List
+import os as _os
 
-from app.core.crypto import ballot_to_json, encrypt_ballot, pub_from_json
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+
 from app.db.database import get_db
-from app.db.models import ApprovalStatus, Candidate, User
-from app.schemas.schemas import EncBallotIn, HEBallotIn, HasVotedOut, VoteConfirmation
-from app.services import voting_service
-from app.services.election_service import get_election
+from app.db.models import User
+from app.schemas.schemas import FaceVerifyIn, HEBallotIn, HasVotedOut, VoteConfirmation
+from app.services.audit_notification_service import _audit
+from app.services.face_verification_service import MAX_RETRIES, check_liveness, verify_face
+from app.services.voting_service import cast_he_ballot, get_participation
 from app.utils.dependencies import require_verified
+from app.utils.helpers import _now
 
 router = APIRouter(prefix="/api", tags=["Voting"])
 
 
-class PlainPositionVote(BaseModel):
-    position_id: int
-    candidate_ids: List[int]
-
-
-class PlainVoteIn(BaseModel):
-    election_id: int
-    positions: List[PlainPositionVote]
-
-
-@router.post("/vote/plain", response_model=VoteConfirmation)
-async def cast_plain_vote(
-    body: PlainVoteIn,
-    request: Request,
+@router.post("/voting/verify-face")
+async def face_verify(
+    payload: FaceVerifyIn,
     db: Session = Depends(get_db),
     user: User = Depends(require_verified),
 ):
-    election = get_election(db, body.election_id)
-    if not election or not election.he_public_key_json:
-        raise HTTPException(status_code=400, detail="Election not ready for voting")
-
-    pk = pub_from_json(election.he_public_key_json)
-
-    he_positions = []
-    for pos_body in body.positions:
-        position = next((p for p in election.positions if p.id == pos_body.position_id), None)
-        if not position:
-            raise HTTPException(status_code=400, detail=f"Position {pos_body.position_id} not found")
-
-        approved = (
-            db.query(Candidate)
-            .filter(
-                Candidate.position_id == pos_body.position_id,
-                Candidate.approval_status == ApprovalStatus.APPROVED,
-            )
-            .order_by(Candidate.id)
-            .all()
+    if not user.profile_photo_path:
+        raise HTTPException(
+            status_code=400,
+            detail="No profile photo on file. Please contact the Election Head.",
         )
-        approved_ids = [c.id for c in approved]
 
-        selected_indices = []
-        for cid in pos_body.candidate_ids:
-            if cid in approved_ids:
-                selected_indices.append(approved_ids.index(cid))
+    # Resolve path — works for both local relative paths and Cloudinary URLs
+    profile_path = str(user.profile_photo_path)
+    if not profile_path.startswith("http"):
+        # Local path — resolve relative to backend root
+        from app.core.config import BASE_DIR
+        profile_path = str(BASE_DIR / profile_path)
 
-        encrypted = encrypt_ballot(pk, selected_indices, len(approved_ids))
-        he_positions.append({
-            "position_id": pos_body.position_id,
-            "candidate_ids": pos_body.candidate_ids,
-            "encrypted_ballot_json": ballot_to_json(encrypted),
-        })
+    if not _os.path.isfile(profile_path):
+        raise HTTPException(
+            status_code=500,
+            detail="Profile photo could not be found on the server. Contact support.",
+        )
 
-    he_ballot = HEBallotIn(
-        election_id=body.election_id,
-        positions=[EncBallotIn(**p) for p in he_positions],
+    try:
+        # ── Step 1: liveness check ──────────────────────────────────────────
+        if payload.liveness_frames:
+            liveness = check_liveness(payload.liveness_frames)
+            if not liveness["live"]:
+                _audit(db, "FACE_LIVENESS_FAIL", user.id, actor_role="student",
+                       details=f"reason={liveness['reason']} ear_var={liveness.get('variance')}")
+                db.commit()
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "reason": "liveness_failed",
+                        "message": "Liveness check failed — no blink detected. "
+                                   "Please look at the camera and blink naturally when prompted.",
+                        "retries_allowed": MAX_RETRIES,
+                    },
+                )
+
+        # ── Step 2: face match ──────────────────────────────────────────────
+        result = verify_face(profile_path, payload.live_image_b64)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Audit the attempt
+    _audit(
+        db, "FACE_VERIFY_ATTEMPT", user.id,
+        actor_role="student",
+        details=(
+            f"verified={result['verified']} "
+            f"score={result.get('similarity') or result.get('distance')}"
+        ),
     )
-    return voting_service.cast_he_ballot(db, user.id, he_ballot, ip=request.client.host)
+    db.commit()
+
+    if not result["verified"]:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "reason": result.get("reason", "face_mismatch"),
+                "message": (
+                    "No face detected. Please ensure your face is clearly visible and try again."
+                    if result.get("reason") == "no_face_detected"
+                    else "Your face did not match the photo on your account. "
+                         "Please ensure good lighting and try again."
+                ),
+                "retries_allowed": MAX_RETRIES,
+            },
+        )
+
+    user.last_face_verification_at = _now()
+    db.commit()
+
+    return {"verified": True}
+
 
 @router.post("/vote", response_model=VoteConfirmation)
 async def cast_vote(
     ballot: HEBallotIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_verified)
+    user: User = Depends(require_verified),
 ):
     try:
-        return voting_service.cast_he_ballot(db, user.id, ballot, ip=request.client.host)
+        return cast_he_ballot(db, user.id, ballot, ip=request.client.host)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/elections/{election_id}/has-voted", response_model=HasVotedOut)
 async def check_voted(
     election_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_verified)
+    user: User = Depends(require_verified),
 ):
-    vparticipation = voting_service.get_participation(db, user.id, election_id)
+    vparticipation = get_participation(db, user.id, election_id)
     if vparticipation:
         return HasVotedOut(
             has_voted=True,
             confirmation_code=vparticipation.confirmation_code,
-            voted_at=vparticipation.voted_at
+            voted_at=vparticipation.voted_at,
         )
     return HasVotedOut(has_voted=False)

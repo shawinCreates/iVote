@@ -58,89 +58,139 @@ For production, set `NEXT_PUBLIC_API_BASE_URL` to your backend host and configur
 
 ## 📁 Project Structure
 
-```text
+```
 iVote
+├─ LICENSE
+├─ README.md
 ├─ backend
+│  ├─ README.md
 │  ├─ app
+│  │  ├─ __init__.py
 │  │  ├─ core
+│  │  │  ├─ cloudinary_storage.py
 │  │  │  ├─ config.py
 │  │  │  ├─ crypto.py
+│  │  │  ├─ email_service.py
+│  │  │  ├─ face_weights
+│  │  │  │  ├─ facenet_vggface2.pt
+│  │  │  │  └─ haarcascade_frontalface_default.xml
+│  │  │  ├─ middleware.py
+│  │  │  ├─ paillier.py
 │  │  │  └─ security.py
 │  │  ├─ db
+│  │  │  ├─ __init__.py
 │  │  │  ├─ database.py
-│  │  │  ├─ models.py
-│  │  │  └─ __init__.py
+│  │  │  └─ models.py
 │  │  ├─ main.py
 │  │  ├─ routers
+│  │  │  ├─ __init__.py
 │  │  │  ├─ auth.py
 │  │  │  ├─ candidates.py
 │  │  │  ├─ elections.py
 │  │  │  ├─ results.py
 │  │  │  ├─ users.py
-│  │  │  ├─ voting.py
-│  │  │  └─ __init__.py
+│  │  │  └─ voting.py
 │  │  ├─ schemas
 │  │  │  └─ schemas.py
 │  │  ├─ services
+│  │  │  ├─ __init__.py
 │  │  │  ├─ audit_notification_service.py
 │  │  │  ├─ auth_services.py
 │  │  │  ├─ candidate_service.py
+│  │  │  ├─ deepface_verification_service.py
 │  │  │  ├─ election_service.py
+│  │  │  ├─ face_verification_service.py
 │  │  │  ├─ he_tally_service.py
 │  │  │  ├─ result_service.py
 │  │  │  ├─ schedular_service.py
-│  │  │  ├─ voting_service.py
-│  │  │  └─ __init__.py
-│  │  ├─ uploads
-│  │  │  └─ id_cards
-│  │  │     └─ idcard_BIT-130.png
-│  │  ├─ utils
-│  │  │  ├─ dependencies.py
-│  │  │  └─ helpers.py
-│  │  └─ __init__.py
-│  ├─ README.md
+│  │  │  └─ voting_service.py
+│  │  └─ utils
+│  │     ├─ dependencies.py
+│  │     └─ helpers.py
+│  ├─ init_db.py
+│  ├─ manage.py
 │  └─ requirements.txt
-├─ frontend
-│  ├─ app
-│  │  ├─ admin
-│  │  │  ├─ audit
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ candidates
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ dashboard
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ elections
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ results
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ students
-│  │  │  │  └─ page.tsx
-│  │  ├─ student
-│  │  │  ├─ candidacy
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ candidates
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ dashboard
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ results
-│  │  │  │  └─ page.tsx
-│  │  │  ├─ vote
-│  │  │  │  └─ page.tsx
-│  │  ├─ globals.css
-│  │  ├─ layout.tsx
-│  │  ├─ page.tsx
-│  │  └─ register
-│  │     └─ page.tsx
-│  ├─ components
-│  │  └─ AppShell.tsx
-│  ├─ lib
-│  │  ├─ api.ts
-│  │  └─ utils.ts
-│  ├─ next.config.mjs
-│  ├─ next-env.d.ts
-│  ├─ package.json
-│  └─ tsconfig.json
-├─ LICENSE
-└─ uploads
-   └─ id_cards
+└─ frontend
+   ├─ app
+   │  ├─ admin
+   │  │  ├─ audit
+   │  │  │  └─ page.tsx
+   │  │  ├─ candidates
+   │  │  │  └─ page.tsx
+   │  │  ├─ dashboard
+   │  │  │  └─ page.tsx
+   │  │  ├─ elections
+   │  │  │  └─ page.tsx
+   │  │  ├─ layout.tsx
+   │  │  ├─ page.tsx
+   │  │  ├─ results
+   │  │  │  └─ page.tsx
+   │  │  └─ students
+   │  │     └─ page.tsx
+   │  ├─ forgot-password
+   │  │  └─ page.tsx
+   │  ├─ globals.css
+   │  ├─ layout.tsx
+   │  ├─ not-found.tsx
+   │  ├─ page.tsx
+   │  ├─ register
+   │  │  └─ page.tsx
+   │  ├─ reset-password
+   │  │  └─ page.tsx
+   │  └─ student
+   │     ├─ candidacy
+   │     │  └─ page.tsx
+   │     ├─ candidates
+   │     │  └─ page.tsx
+   │     ├─ dashboard
+   │     │  └─ page.tsx
+   │     ├─ layout.tsx
+   │     ├─ page.tsx
+   │     ├─ results
+   │     │  └─ page.tsx
+   │     └─ vote
+   │        └─ page.tsx
+   ├─ components
+   │  ├─ AppShell.tsx
+   │  ├─ Providers.tsx
+   │  ├─ layout
+   │  ├─ shared
+   │  │  ├─ ConfirmDialog.tsx
+   │  │  ├─ ElectionCountdown.tsx
+   │  │  ├─ EmptyState.tsx
+   │  │  ├─ HEBadge.tsx
+   │  │  ├─ NotificationPanel.tsx
+   │  │  ├─ Pagination.tsx
+   │  │  ├─ ProtectedImage.tsx
+   │  │  ├─ SkeletonTable.tsx
+   │  │  └─ StarField.tsx
+   │  └─ ui
+   │     ├─ Alert.tsx
+   │     ├─ Badge.tsx
+   │     ├─ Button.tsx
+   │     ├─ Card.tsx
+   │     ├─ FormControls.tsx
+   │     ├─ Modal.tsx
+   │     └─ Spinner.tsx
+   ├─ hooks
+   │  ├─ useAuth.ts
+   │  ├─ useCamera.ts
+   │  ├─ useCountUp.ts
+   │  └─ useTheme.ts
+   ├─ lib
+   │  ├─ api.ts
+   │  ├─ formatters.ts
+   │  ├─ paillier.ts
+   │  └─ store.ts
+   ├─ next-env.d.ts
+   ├─ next.config.mjs
+   ├─ package-lock.json
+   ├─ package.json
+   ├─ postcss.config.mjs
+   ├─ public
+   │  └─ favicon.svg
+   ├─ tailwind.config.ts
+   ├─ tsconfig.json
+   └─ tsconfig.tsbuildinfo
+
 ```

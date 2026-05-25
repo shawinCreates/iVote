@@ -1,109 +1,74 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { fetchAuditLogs, exportAuditLogs } from '../../../lib/api';
-import { formatDate } from '../../../lib/utils';
+"use client";
+import { useState, useEffect } from "react";
+import { adminGetAuditLogs, adminExportAuditCSV, extractError } from "@/lib/api";
+import { fmtDateTime } from "@/lib/formatters";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Input } from "@/components/ui/FormControls";
+import Button from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import Pagination from "@/components/shared/Pagination";
+import EmptyState from "@/components/shared/EmptyState";
+import { usePagination } from "@/hooks/useCountUp";
+import { FiSearch, FiDownload } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [skip, setSkip] = useState(0);
-  const limit = 50;
+  const [search, setSearch] = useState("");
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchAuditLogs(skip, limit);
-      setLogs(data || []);
-    } catch (err: any) {
-      setError(err?.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    adminGetAuditLogs(0, 500).then((data) => { setLogs(Array.isArray(data) ? data : []); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
 
-  useEffect(() => { load(); }, [skip]);
+  const filtered = logs.filter((l) => {
+    const q = search.toLowerCase();
+    return !q || [l.action, l.user_email, l.details, l.ip_address].some((f) => (typeof f === "string" ? f : JSON.stringify(f))?.toLowerCase().includes(q));
+  });
 
-  async function handleExport() {
-    try {
-      const csvData = await exportAuditLogs();
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err?.message);
-    }
-  }
+  const { page, totalPages, paged, total, setPage } = usePagination(filtered, 20);
+
+  const handleExport = async () => {
+    try { await adminExportAuditCSV(); toast.success("CSV exported"); }
+    catch (err) { toast.error(extractError(err)); }
+  };
 
   return (
-    <div>
-      {error && (
-        <div className="alert alert-danger" style={{ display: 'flex' }}>
-          <span>✕</span>
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="card">
-        <div className="card-hd">
-          <div className="card-title">Audit Logs</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm btn-outline" onClick={handleExport}>📥 Export CSV</button>
-          </div>
-        </div>
-        <div style={{ padding: '0 18px 18px' }}>
-          {loading ? (
-            <div className="skeleton" style={{ height: 300, borderRadius: 18 }} />
-          ) : logs.length === 0 ? (
-            <div className="empty">
-              <div className="empty-title">No audit logs found</div>
-              <div className="empty-text">Logs will appear here as actions are performed</div>
-            </div>
-          ) : (
-            <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Action</th>
-                      <th>User ID</th>
-                      <th>Election ID</th>
-                      <th>Details</th>
-                      <th>IP Address</th>
-                      <th>Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log) => (
-                      <tr key={log.id}>
-                        <td style={{ fontSize: 12, color: 'var(--g400)' }}>{log.id}</td>
-                        <td><span className="badge badge-nomination_open" style={{ fontSize: 11 }}>{log.action}</span></td>
-                        <td style={{ fontSize: 13 }}>{log.user_id || '—'}</td>
-                        <td style={{ fontSize: 13 }}>{log.election_id || '—'}</td>
-                        <td style={{ fontSize: 13, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.details || '—'}</td>
-                        <td style={{ fontSize: 12, fontFamily: 'monospace' }}>{log.ip_address || '—'}</td>
-                        <td style={{ fontSize: 12 }}>{formatDate(log.timestamp)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '18px 0' }}>
-                <button className="btn btn-sm btn-outline" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - limit))}>← Previous</button>
-                <span style={{ fontSize: 13, color: 'var(--g400)', alignSelf: 'center' }}>Showing {skip + 1}–{skip + logs.length}</span>
-                <button className="btn btn-sm btn-outline" disabled={logs.length < limit} onClick={() => setSkip(skip + limit)}>Next →</button>
-              </div>
-            </>
-          )}
-        </div>
+    <div className="space-y-4 animate-fade-up">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <Input name="search" placeholder="Search logs..." value={search} onChange={(e) => setSearch(e.target.value)} leftIcon={<FiSearch size={14} />} className="w-full sm:w-72" />
+        <Button variant="ghost" onClick={handleExport} leftIcon={<FiDownload size={14} />}>Export CSV</Button>
       </div>
+
+      <Card>
+        <CardBody className="p-0">
+          {loading ? <div className="flex justify-center py-12"><Spinner /></div> : paged.length === 0 ? (
+            <EmptyState title="No logs" message="No audit entries found." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-border">
+                  <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Timestamp</th>
+                  <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Event</th>
+                  <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Actor</th>
+                  <th className="text-left px-5 py-3 text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)]">Details</th>
+                </tr></thead>
+                <tbody className="divide-y divide-border">
+                  {paged.map((l: any, i: number) => (
+                    <tr key={l.id ?? i} className="hover:bg-surface-2 transition-colors">
+                      <td className="px-5 py-2.5 font-[var(--font-mono)] text-xs text-text-3 whitespace-nowrap">{fmtDateTime(l.timestamp)}</td>
+                      <td className="px-5 py-2.5 text-text-1">{l.action}</td>
+                      <td className="px-5 py-2.5 text-text-2">{l.actor_role ?? "—"}</td>
+                      <td className="px-5 py-2.5 text-text-3 max-w-[300px] truncate">{typeof l.details === "string" ? l.details : l.details ? JSON.stringify(l.details).slice(0, 80) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
     </div>
   );
 }

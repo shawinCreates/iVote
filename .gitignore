@@ -12,3 +12,5 @@ node_modules/
 .DS_Store
 dist/
 uploads/
+backend/app/core/face_weights/*.pt
+backend/app/core/face_weights/*.pth

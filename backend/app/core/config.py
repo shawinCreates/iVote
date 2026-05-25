@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-load_dotenv()
+load_dotenv(BASE_DIR / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -18,24 +18,13 @@ ALGORITHM = os.getenv("ALGORITHM") or "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 ACCESS_TOKEN_EXPIRE_DELTA = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
-CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
-CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
-CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
-CLOUDINARY_ENABLED = bool(
-    CLOUDINARY_URL
-    or (CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET)
-)
-if not CLOUDINARY_ENABLED:
-    raise RuntimeError(
-        "Cloudinary must be configured for uploads. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
-    )
-
 UPLOAD_DIR = BASE_DIR / "uploads"
 ID_CARD_DIR = UPLOAD_DIR / "id_cards"
 ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 CANDIDATE_PHOTO_DIR = UPLOAD_DIR / "candidates_photo"
 CANDIDATE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_PHOTO_DIR = UPLOAD_DIR / "profile_photo"
+PROFILE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
 
 _ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/jpg"}
 _MAX_PHOTO_BYTES     = 5 * 1024 * 1024   # 5 MB

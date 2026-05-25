@@ -1,133 +1,190 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { api, getStoredUser } from '../../../lib/api';
-import { formatDate, formatDateShort, timeRemaining, statusLabel, getStatusBadgeClass } from '../../../lib/utils';
+"use client";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { getActiveElections, getMyCandidacy } from "@/lib/api";
+import { fmtDateTime } from "@/lib/formatters";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardBody } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import ElectionCountdown from "@/components/shared/ElectionCountdown";
+import EmptyState from "@/components/shared/EmptyState";
+import { FiCheckSquare, FiUsers, FiBarChart2, FiUser, FiClock, FiShield, FiAward } from "react-icons/fi";
 
 export default function StudentDashboardPage() {
+  const { user } = useAuth();
   const [elections, setElections] = useState<any[]>([]);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [published, setPublished] = useState<any[]>([]);
-  const [votingEvent, setVotingEvent] = useState<any | null>(null);
-  const [voted, setVoted] = useState<any | null>(null);
+  const [candidacies, setCandidacies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [electionData, candidacyData] = await Promise.all([
-          api('/api/elections'),
-          api('/api/my-candidacy').catch(() => [])
-        ]);
-        setElections(electionData || []);
-        setApplications(candidacyData || []);
-        const publishedList = (electionData || []).filter((item: any) => item.status === 'results_published');
-        setPublished(publishedList);
-        const openVote = (electionData || []).find((item: any) => item.status === 'voting_open');
-        setVotingEvent(openVote || null);
-        if (openVote) {
-          const user = getStoredUser();
-          if (user?.is_verified) {
-            const voteStatus = await api(`/api/elections/${openVote.id}/has-voted`);
-            setVoted(voteStatus);
-          }
-        }
-      } catch (err: any) {
-        setError(err?.message || 'Unable to load dashboard');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
+    Promise.all([
+      getActiveElections().catch(() => []),
+      getMyCandidacy().catch(() => []),
+    ]).then(([e, c]) => {
+      setElections(Array.isArray(e) ? e : []);
+      setCandidacies(Array.isArray(c) ? c : c ? [c] : []);
+      setLoading(false);
+    });
   }, []);
 
+  const votingElection = elections.find((e) => e.status === "voting_open");
+  const nominationElections = elections.filter((e) => e.status === "nomination_open");
+  const approvedCount  = candidacies.filter((c) => c.approval_status === "approved").length;
+  const pendingCount   = candidacies.filter((c) => c.approval_status === "pending").length;
+  const hasApplied     = candidacies.length > 0;
+  const hasApproved    = approvedCount > 0;
+  const hasPending     = pendingCount > 0;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+
   return (
-    <div>
-      {error ? <div className="alert alert-danger"><span>✕</span><span>{error}</span></div> : null}
-      <div id="unverified-banner" style={{ display: getStoredUser()?.is_verified ? 'none' : 'flex' }} className="alert alert-warning">
-        Your account is <strong>pending verification</strong> by the Election Head. You will be notified by email once approved.
+    <div className="space-y-6 animate-fade-up">
+      {/* Hero welcome */}
+      <div className="relative overflow-hidden rounded-[var(--radius-xl)] bg-gradient-to-br from-surface-2 via-surface-1 to-void border border-border p-6">
+        <div className="relative z-10">
+          <div className="text-[10px] font-[var(--font-display)] uppercase tracking-widest text-text-3 mb-1">{greeting}</div>
+          <h1 className="font-[var(--font-display)] text-2xl font-bold text-white">
+            {user?.full_name?.split(" ")[0] ?? "Student"}
+          </h1>
+          {(user?.faculty || user?.program) && (
+            <div className="text-sm text-text-3 mt-1">
+              {[user.faculty, user.program].filter(Boolean).join(" · ")}
+            </div>
+          )}
+        </div>
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-gold/5 blur-3xl pointer-events-none" />
+        <div className="absolute right-12 -bottom-6 w-24 h-24 rounded-full bg-cyan/5 blur-2xl pointer-events-none" />
       </div>
-      <div id="dash-content">
-        <div className="e-hero" style={{ marginBottom: 24 }}>
-          <div className="e-hero-bg" />
-          <div className="e-hero-inner" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <div className="e-hero-label">{votingEvent ? (voted?.has_voted ? 'Vote Recorded' : 'Voting is OPEN') : published.length ? 'Results Available' : 'Campus Elections'}</div>
-              <div className="e-hero-name">{votingEvent ? votingEvent.name : published.length ? published[0].name : 'Stay engaged with all campus polls'}</div>
-              <div className="e-hero-sub">
-                {votingEvent
-                  ? `${votingEvent.positions.length} position(s) · Closes ${formatDate(votingEvent.voting_end)}`
-                  : published.length
-                  ? 'Election results have been published'
-                  : 'Review candidates, cast your vote, and follow the process.'}
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Elections",    value: elections.length,     color: "text-cyan",    bg: "bg-cyan/10",    Icon: FiShield },
+          { label: "Applications", value: candidacies.length,   color: "text-gold",    bg: "bg-gold/10",    Icon: FiUser },
+          { label: "Approved",     value: approvedCount,        color: "text-success", bg: "bg-success/10", Icon: FiAward },
+        ].map(({ label, value, color, bg, Icon }) => (
+          <Card key={label}>
+            <CardBody className="py-4">
+              <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>
+                <Icon size={15} className={color} />
               </div>
-              {voted?.has_voted ? (
-                <div style={{ marginTop: 12, background: 'rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                  <span style={{ color: 'rgba(255,255,255,.5)' }}>Confirmation:</span>
-                  <code style={{ fontFamily: 'monospace', color: 'var(--gold)', letterSpacing: '1px' }}>{voted.confirmation_code}</code>
+              <div className={`font-[var(--font-mono)] text-xl font-bold ${color}`}>{value}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mt-0.5">{label}</div>
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+
+      {/* Active voting banner */}
+      {votingElection && (
+        <Card glow="gold">
+          <CardBody>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <Badge status="voting_open" className="mb-2" />
+                <h2 className="font-[var(--font-display)] text-lg font-bold text-white">{votingElection.name}</h2>
+                <div className="text-xs text-text-3 mt-1 flex items-center gap-1">
+                  <FiClock size={10} />
+                  {fmtDateTime(votingElection.voting_start)} — {fmtDateTime(votingElection.voting_end)}
                 </div>
-              ) : null}
+              </div>
+              <div className="flex items-center gap-4">
+                <ElectionCountdown endTime={votingElection.voting_end} />
+                <Link href="/student/vote">
+                  <Button leftIcon={<FiCheckSquare size={14} />}>Cast Vote</Button>
+                </Link>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 220, gap: 12 }}>
-              {votingEvent ? (
-                <>
-                  <div className="e-hero-timer">{timeRemaining(votingEvent.voting_end)}</div>
-                  <div className="e-hero-timer-lbl">Remaining</div>
-                  {voted?.has_voted ? (
-                    <span style={{ background: 'rgba(255,255,255,.12)', color: 'white', border: '1px solid rgba(255,255,255,.2)', borderRadius: 20, padding: '7px 18px', fontSize: 13, fontWeight: 600 }}>Vote Cast</span>
-                  ) : getStoredUser()?.is_verified ? (
-                    <a href="/student/vote" className="btn btn-gold btn-lg">Cast Your Vote →</a>
-                  ) : (
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,.4)' }}>Verify account to vote</span>
-                  )}
-                </>
-              ) : published.length ? (
-                <a href="/student/results" className="btn btn-gold btn-lg">View Results →</a>
-              ) : null}
-            </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
+      )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18, marginBottom: 24 }}>
-          <div className="stat-card navy"><div className="stat-value">{loading ? '—' : elections.length}</div><div className="stat-label">Elections</div></div>
-          <div className="stat-card red"><div className="stat-value">{loading ? '—' : applications.length}</div><div className="stat-label">My Applications</div></div>
-          <div className="stat-card gold"><div className="stat-value">{loading ? '—' : published.length}</div><div className="stat-label">Published Results</div></div>
-        </div>
-
-        <div className="action-grid" style={{ marginBottom: 24 }}>
-          <a href="/student/candidates" className="action-tile"><div className="action-tile-lbl">Browse Candidates</div><div className="action-tile-sub">Explore profiles & manifestos</div></a>
-          <a href="/student/vote" className={`action-tile${!votingEvent || (voted?.has_voted ? ' dim' : '') ? ' dim' : ''}`}><div className="action-tile-lbl">Cast My Vote</div><div className="action-tile-sub">{votingEvent ? (voted?.has_voted ? 'Already voted' : 'Voting is open!') : 'No active voting'}</div></a>
-          <a href="/student/results" className={`action-tile${published.length === 0 ? ' dim' : ''}`}><div className="action-tile-lbl">View Results</div><div className="action-tile-sub">{published.length ? `${published.length} result(s) available` : 'Not yet published'}</div></a>
-          <a href="/student/candidacy" className={`action-tile${!elections.some((item) => item.status === 'nomination_open') ? ' dim' : ''}`}><div className="action-tile-lbl">Run for Office</div><div className="action-tile-sub">{elections.some((item) => item.status === 'nomination_open') ? 'Nominations open now!' : 'No nominations open'}</div></a>
-        </div>
-
-        <div className="card">
-          <div className="card-hd"><div className="card-title">All Elections</div></div>
-          <div style={{ padding: '18px' }}>
-            {loading ? (
-              <div className="skeleton" style={{ height: 220, borderRadius: 18 }} />
-            ) : elections.length ? (
-              elections.map((election, index) => (
-                <div key={election.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px', gap: 12, flexWrap: 'wrap', borderBottom: index < elections.length - 1 ? '1px solid var(--g100)' : 'none' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{election.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--g400)' }}>Voting: {formatDateShort(election.voting_start)} → {formatDateShort(election.voting_end)}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span className={getStatusBadgeClass(election.status)}>{statusLabel(election.status)}</span>
-                    {election.status === 'voting_open' ? <a href="/student/vote" className="btn btn-sm btn-primary">Vote</a> : null}
-                    {election.status === 'results_published' ? <a href="/student/results" className="btn btn-sm btn-gold">Results</a> : null}
-                  </div>
+      {/* Nominations / candidacy status banner */}
+      {nominationElections.length > 0 && (
+        <Card glow="cyan">
+          <CardBody>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Badge status="nomination_open" className="mb-2" />
+                <div className="font-[var(--font-display)] text-sm font-bold text-white">
+                  {nominationElections.length === 1
+                    ? nominationElections[0].name
+                    : `${nominationElections.length} elections open for nominations`}
                 </div>
-              ))
-            ) : (
-              <div className="empty"><div className="empty-title">No elections are available.</div></div>
-            )}
-          </div>
+                <div className="text-xs text-text-3 mt-0.5">
+                  {hasApproved
+                    ? "Your candidacy is approved — you are on the ballot"
+                    : hasPending
+                    ? "Your application is under review"
+                    : hasApplied
+                    ? "Your application was not approved — you may re-apply"
+                    : "Applications are being accepted"}
+                </div>
+              </div>
+              <Link href="/student/candidacy">
+                <Button variant="ghost" size="sm">
+                  {hasApplied ? "View Application" : "Apply Now"}
+                </Button>
+              </Link>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Quick actions */}
+      <div>
+        <h3 className="font-[var(--font-display)] text-[10px] font-bold text-text-3 uppercase tracking-widest mb-3">Quick Actions</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { href: "/student/candidates", label: "Candidates",    Icon: FiUsers,       color: "text-cyan",    bg: "bg-cyan/10" },
+            { href: "/student/vote",       label: "Cast Vote",     Icon: FiCheckSquare, color: "text-gold",    bg: "bg-gold/10" },
+            { href: "/student/results",    label: "Results",       Icon: FiBarChart2,   color: "text-success", bg: "bg-success/10" },
+            { href: "/student/candidacy",  label: "My Candidacy",  Icon: FiUser,        color: "text-warning", bg: "bg-warning/10" },
+          ].map(({ href, label, Icon, color, bg }) => (
+            <Link key={href} href={href}>
+              <Card hover>
+                <CardBody className="text-center py-5">
+                  <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center mx-auto mb-2`}>
+                    <Icon size={18} className={color} />
+                  </div>
+                  <div className="text-xs font-[var(--font-display)] font-bold text-text-2 uppercase tracking-wider">{label}</div>
+                </CardBody>
+              </Card>
+            </Link>
+          ))}
         </div>
+      </div>
+
+      {/* Elections list */}
+      <div>
+        <h3 className="font-[var(--font-display)] text-[10px] font-bold text-text-3 uppercase tracking-widest mb-3">All Elections</h3>
+        {elections.length === 0 ? (
+          <Card><CardBody><EmptyState title="No elections" message="No active elections at this time." /></CardBody></Card>
+        ) : (
+          <div className="space-y-2">
+            {elections.map((e: any) => (
+              <Card key={e.id} hover>
+                <CardBody>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white">{e.name}</div>
+                      <div className="text-xs text-text-3 flex items-center gap-1 mt-0.5">
+                        <FiClock size={10} />
+                        {fmtDateTime(e.voting_start)} — {fmtDateTime(e.voting_end)}
+                      </div>
+                    </div>
+                    <Badge status={e.status} />
+                  </div>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
