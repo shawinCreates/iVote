@@ -1,12 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
-import { adminGetElections, adminGetResults } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import { adminGetElections, adminGetResults, adminUpdateStatus, extractError } from "@/lib/api";
 import { fmtPercent } from "@/lib/formatters";
 import { Card, CardHeader, CardBody } from "@/components/ui/Card";
 import { Select } from "@/components/ui/FormControls";
+import Button from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import EmptyState from "@/components/shared/EmptyState";
 import HEBadge from "@/components/shared/HEBadge";
+import { FiCheck } from "react-icons/fi";
+import toast from "react-hot-toast";
 import { ResponsiveContainer, PieChart, Pie } from "recharts";
 
 const CHART_COLORS = ["#f59e0b", "#22d3ee", "#a78bfa", "#34d399", "#fb7185", "#60a5fa"];
@@ -99,21 +103,42 @@ function PositionChart({ pos }: { pos: any }) {
 }
 
 export default function AdminResultsPage() {
+  const searchParams = useSearchParams();
   const [elections, setElections] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     adminGetElections().then((data) => {
       const list = Array.isArray(data) ? data : [];
       setElections(list);
-      const published = list.find((e: any) => e.status === "results_published" || e.status === "closed");
-      if (published) setSelectedId(published.id);
+      const paramId = searchParams.get("election");
+      if (paramId) {
+        setSelectedId(Number(paramId));
+      } else {
+        const published = list.find((e: any) => e.status === "results_published" || e.status === "closed");
+        if (published) setSelectedId(published.id);
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [searchParams]);
+
+  const selectedElection = elections.find((e: any) => e.id === selectedId);
+  const canPublish = selectedElection?.status === "closed" && selectedElection?.he_tally_completed;
+
+  const handlePublish = async () => {
+    if (!selectedId) return;
+    setPublishing(true);
+    try {
+      await adminUpdateStatus(selectedId, "results_published");
+      toast.success("Results published");
+      setElections((prev) => prev.map((e) => e.id === selectedId ? { ...e, status: "results_published" } : e));
+    } catch (err) { toast.error(extractError(err)); }
+    setPublishing(false);
+  };
 
   useEffect(() => {
     if (!selectedId) return;
@@ -129,7 +154,14 @@ export default function AdminResultsPage() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <Select name="election" value={selectedId ?? ""} onChange={(e) => setSelectedId(Number(e.target.value))}
           options={elections.map((e: any) => ({ value: e.id, label: e.name }))} placeholder="Select election" className="w-full sm:w-72" />
-        <HEBadge />
+        <div className="flex items-center gap-3">
+          {canPublish && (
+            <Button variant="success" leftIcon={<FiCheck size={14} />} onClick={handlePublish} isLoading={publishing}>
+              Publish Results
+            </Button>
+          )}
+          <HEBadge />
+        </div>
       </div>
 
       {!selectedId ? (

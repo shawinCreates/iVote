@@ -17,32 +17,21 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 
 // ── Faculty → Program mapping ────────────────────────────────────────────────
 
+// Programs offered at Bhaktapur Multiple Campus (TU constituent)
 const FACULTY_PROGRAMS: Record<string, string[]> = {
   "Science and Technology": [
-    "B.Sc. CSIT", "BCA", "BIT",
-    "B.Sc. Physics", "B.Sc. Chemistry", "B.Sc. Mathematics",
-    "B.Sc. Microbiology", "B.Sc. Environmental Science",
+    "B.Sc. CSIT", "BCA",
+    "B.Sc. Physics", "B.Sc. Chemistry", "B.Sc. Mathematics", "B.Sc. Microbiology",
   ],
-  "Management": ["BBS", "BBA", "BIM", "BTTM", "BHM", "B.Com", "BBM"],
+  "Management": ["BBS"],
   "Humanities and Social Science": [
-    "BA", "BA Sociology", "BA Political Science", "BA Economics",
-    "BA Philosophy", "BA History", "BA Psychology", "BA Rural Development",
+    "BA (Sociology)", "BA (Political Science)", "BA (Economics)",
+    "BA (English)", "BA (Nepali)", "BA (History)",
   ],
   "Education": [
-    "B.Ed.", "B.Ed. English", "B.Ed. Mathematics",
-    "B.Ed. Science", "B.Ed. Social Studies", "B.Ed. Nepali",
-    "B.Ed. Population Education",
+    "B.Ed. (English)", "B.Ed. (Mathematics)", "B.Ed. (Science)",
+    "B.Ed. (Social Studies)", "B.Ed. (Nepali)", "B.Ed. (Population Education)",
   ],
-  "Law": ["LLB", "B.L."],
-  "Engineering": [
-    "B.E. Civil", "B.E. Mechanical", "B.E. Electrical",
-    "B.E. Electronics & Communication", "B.E. Computer", "B.E. Architecture",
-    "B.E. Geomatics",
-  ],
-  "Medicine": ["MBBS", "BDS", "B.Pharm", "B.Sc. Nursing", "B.Sc. Medical Lab Technology"],
-  "Forestry": ["B.Sc. Forestry"],
-  "Agriculture and Animal Science": ["B.Sc. Agriculture", "B.V.Sc. & A.H."],
-  "Fine Arts": ["BFA", "B.Mus."],
 };
 
 const FACULTIES = Object.keys(FACULTY_PROGRAMS);

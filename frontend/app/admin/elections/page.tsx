@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import EmptyState from "@/components/shared/EmptyState";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import ElectionCountdown from "@/components/shared/ElectionCountdown";
-import { FiPlus, FiX as FiXIcon, FiCheck, FiBarChart2 } from "react-icons/fi";
+import { FiPlus, FiX as FiXIcon, FiBarChart2 } from "react-icons/fi";
 import toast from "react-hot-toast";
 
 const STAGES = [
@@ -199,9 +199,9 @@ export default function AdminElectionsPage() {
                   })()}
 
                   {e.status === "closed" && (
-                    <Button size="sm" variant="success" leftIcon={<FiCheck size={12} />}
-                      onClick={() => setConfirmAction({ electionId: e.id, next: "results_published", label: "Publish Results", variant: "success" })}>
-                      Publish Results
+                    <Button size="sm" variant="primary-cyan" leftIcon={<FiBarChart2 size={12} />}
+                      onClick={() => router.push(`/admin/results?election=${e.id}`)}>
+                      Review Results
                     </Button>
                   )}
 

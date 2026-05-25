@@ -40,7 +40,7 @@ export function encryptBallot(selectedIndices: number[], numCandidates: number, 
   for (let i = 0; i < numCandidates; i++) {
     const vote = selectedSet.has(i) ? 1 : 0;
     const result = encrypt(vote, nStr);
-    encryptedVector.push(result.c);
+    encryptedVector.push({ c: result.c } as any);
   }
   return JSON.stringify(encryptedVector);
 }
@@ -49,5 +49,7 @@ export function parsePublicKey(publicKeyJson: string | any) {
   const parsed = typeof publicKeyJson === "string" ? JSON.parse(publicKeyJson) : publicKeyJson;
   if (parsed.n) return parsed;
   if (parsed.public_key) return parsed.public_key;
+  // API envelope wraps the serialized key under public_key_json
+  if (parsed.public_key_json) return parsePublicKey(parsed.public_key_json);
   throw new Error("Unrecognized HE public key format");
 }

@@ -15,7 +15,7 @@ export default function StarField() {
       {STARS.map((s) => (
         <div
           key={s.id}
-          className="absolute rounded-full bg-white"
+          className="star-dot absolute rounded-full bg-white"
           style={{
             top: `${s.top}%`,
             left: `${s.left}%`,

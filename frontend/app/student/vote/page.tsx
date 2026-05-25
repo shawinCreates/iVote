@@ -26,6 +26,7 @@ export default function StudentVotePage() {
   const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [facePrompt, setFacePrompt] = useState("");
+  const [voteReceipt, setVoteReceipt] = useState<{ confirmation_code: string; voted_at: string } | null>(null);
 
   const camera = useCamera();
 
@@ -38,7 +39,10 @@ export default function StudentVotePage() {
         setElection(votingElection);
 
         const voted = await hasVoted(votingElection.id).catch(() => ({ has_voted: false }));
-        if (voted?.has_voted) { setStep("already-voted"); return; }
+        if (voted?.has_voted) {
+          if (voted.confirmation_code) setVoteReceipt({ confirmation_code: voted.confirmation_code, voted_at: voted.voted_at });
+          setStep("already-voted"); return;
+        }
 
         const pk = await getHEPublicKey(votingElection.id);
         setPublicKey(parsePublicKey(pk));
@@ -94,14 +98,20 @@ export default function StudentVotePage() {
     setStep("encrypting");
     try {
       await new Promise((r) => setTimeout(r, 500));
-      const ballot: any = { election_id: election.id, encrypted_votes: {} };
-      for (const pos of positions) {
-        const posCandidates = candidates[pos.id] ?? [];
+      const positionsBallot = positions.map((pos: any) => {
+        // Sort by candidate ID to match the tally service's ORDER BY candidate.id
+        const sorted = [...(candidates[pos.id] ?? [])].sort((a: any, b: any) => a.id - b.id);
         const selectedIds = selections[pos.id] ?? [];
-        const selectedIndices = posCandidates.map((c: any, i: number) => selectedIds.includes(c.id) ? i : -1).filter((i: number) => i >= 0);
-        ballot.encrypted_votes[pos.id] = encryptBallot(selectedIndices, posCandidates.length, publicKey.n);
-      }
-      await castVote(ballot);
+        const selectedIndices = sorted
+          .map((c: any, i: number) => (selectedIds.includes(c.id) ? i : -1))
+          .filter((i: number) => i >= 0);
+        return {
+          position_id: pos.id,
+          candidate_ids: selectedIds,
+          encrypted_ballot_json: encryptBallot(selectedIndices, sorted.length, publicKey.n),
+        };
+      });
+      await castVote({ election_id: election.id, positions: positionsBallot });
       setStep("success");
       toast.success("Vote cast successfully!");
     } catch (err) {
@@ -121,7 +131,16 @@ export default function StudentVotePage() {
     <Card glow="cyan"><CardBody className="text-center py-10">
       <FiCheck size={40} className="mx-auto text-success mb-3" />
       <div className="font-[var(--font-display)] text-lg font-bold text-white mb-1">Vote Already Cast</div>
-      <div className="text-sm text-text-3">You have already voted in this election. Thank you for participating!</div>
+      <div className="text-sm text-text-3 mb-4">You have already voted in this election. Thank you for participating!</div>
+      {voteReceipt && (
+        <div className="inline-flex flex-col items-center gap-1 px-5 py-3 rounded-[var(--radius-lg)] bg-surface-2 border border-border">
+          <span className="text-[10px] uppercase tracking-widest text-text-3 font-[var(--font-display)]">Confirmation Code</span>
+          <span className="font-[var(--font-mono)] text-base font-bold text-cyan tracking-widest">{voteReceipt.confirmation_code}</span>
+          {voteReceipt.voted_at && (
+            <span className="text-[11px] text-text-3 mt-0.5">{new Date(voteReceipt.voted_at).toLocaleString()}</span>
+          )}
+        </div>
+      )}
     </CardBody></Card>
   );
 
@@ -209,7 +228,7 @@ export default function StudentVotePage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-white">{name}</div>
-                            <div className="text-xs text-text-3">{c.user?.faculty ?? ""}</div>
+                            <div className="text-xs text-text-3">{c.user?.program ?? ""}</div>
                           </div>
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0
                             ${isSelected ? "border-gold bg-gold" : "border-border"}`}>

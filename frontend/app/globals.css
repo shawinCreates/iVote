@@ -86,51 +86,63 @@
   }
 }
 
-/* ── Light theme — Interstellar daylight palette ── */
+/* ── Light theme — Blueprint / Schematic palette ── */
 [data-theme="light"] {
-  /* Warm parchment backgrounds — like aged NASA mission documents */
-  --color-void: #f0ebe0;
-  --color-deep: #e7e1d4;
-  --color-surface: rgba(10, 7, 2, 0.025);
-  --color-surface-2: rgba(10, 7, 2, 0.05);
-  --color-border: rgba(10, 7, 2, 0.09);
-  --color-border-bright: rgba(10, 7, 2, 0.18);
+  /* Blueprint paper backgrounds */
+  --color-void: #e6f0f7;
+  --color-deep: #dae8f2;
+  --color-surface: rgba(0, 80, 160, 0.04);
+  --color-surface-2: rgba(0, 80, 160, 0.08);
+  --color-border: rgba(0, 70, 150, 0.15);
+  --color-border-bright: rgba(0, 70, 150, 0.30);
 
-  /* Deep warm ink text */
-  --color-text-1: rgba(14, 9, 3, 0.88);
-  --color-text-2: rgba(14, 9, 3, 0.58);
-  --color-text-3: rgba(14, 9, 3, 0.36);
-  --color-muted: rgba(14, 9, 3, 0.20);
-  --color-white: #0e0903;
+  /* Deep navy ink text */
+  --color-text-1: rgba(4, 14, 38, 0.88);
+  --color-text-2: rgba(4, 14, 38, 0.58);
+  --color-text-3: rgba(4, 14, 38, 0.38);
+  --color-muted: rgba(4, 14, 38, 0.20);
+  --color-white: #040e26;
 
-  /* Richer cyan — clear sky blue */
-  --color-cyan: #0080a8;
-  --color-cyan-dim: rgba(0, 128, 168, 0.10);
-  --color-cyan-glow: rgba(0, 128, 168, 0.18);
+  /* Blueprint cyan */
+  --color-cyan: #0078a8;
+  --color-cyan-dim: rgba(0, 120, 168, 0.12);
+  --color-cyan-glow: rgba(0, 120, 168, 0.22);
 
-  /* Amber gold — wheat field in afternoon light */
-  --color-gold: #b26a06;
-  --color-gold-bright: #c47a16;
-  --color-gold-dim: rgba(178, 106, 6, 0.10);
-  --color-gold-glow: rgba(178, 106, 6, 0.18);
+  /* Technical amber */
+  --color-gold: #b87000;
+  --color-gold-bright: #cc8000;
+  --color-gold-dim: rgba(184, 112, 0, 0.12);
+  --color-gold-glow: rgba(184, 112, 0, 0.22);
 
-  /* Earthy status colors */
+  /* Status colors */
   --color-success: #1a7a50;
-  --color-success-dim: rgba(26, 122, 80, 0.10);
-  --color-warning: #b26a06;
-  --color-warning-dim: rgba(178, 106, 6, 0.10);
-  --color-danger: #b02424;
-  --color-danger-dim: rgba(176, 36, 36, 0.10);
+  --color-success-dim: rgba(26, 122, 80, 0.12);
+  --color-warning: #b87000;
+  --color-warning-dim: rgba(184, 112, 0, 0.12);
+  --color-danger: #b02020;
+  --color-danger-dim: rgba(176, 32, 32, 0.12);
 }
 
-/* Hide the space star-field in light mode */
+/* Blueprint grid pattern on the page background */
+[data-theme="light"] body {
+  background-image:
+    linear-gradient(rgba(0, 80, 160, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 80, 160, 0.055) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Starfield — show as faint dark navy dots in light mode */
 [data-theme="light"] .star-field {
-  display: none;
+  display: block;
+}
+[data-theme="light"] .star-dot {
+  background-color: #040e26 !important;
+  opacity: 0.07 !important;
 }
 
-/* Grain texture visible in light mode sidebar */
+/* Grain texture visible in light mode */
 [data-theme="light"] .grain-overlay {
-  opacity: 0.06;
+  opacity: 0.04;
 }
 
 /* ── Animations ─── */
