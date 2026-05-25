@@ -75,9 +75,11 @@ export async function apiFetch<T = any>(path: string, options: RequestInit = {})
   }
   const res = await fetch(url, { ...options, headers });
   if (res.status === 401) {
+    let message = "Invalid email or password.";
+    try { const b = await res.json(); message = b?.detail?.message ?? b?.detail ?? message; } catch {}
     clearStore();
     if (typeof window !== "undefined" && window.location.pathname !== "/") window.location.href = "/";
-    throw new ApiError("Unauthorized", 401);
+    throw new ApiError(message, 401);
   }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;

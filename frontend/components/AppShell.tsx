@@ -52,7 +52,7 @@ function Avatar({ user, size = 34 }: { user: any; size?: number }) {
       style={{ width: size, height: size }}
     >
       <ProtectedImage
-        url="/api/auth/me/photo"
+        url={`/api/auth/me/photo?u=${user?.id ?? 0}`}
         alt={abbr}
         initials={abbr}
         className="w-full h-full"

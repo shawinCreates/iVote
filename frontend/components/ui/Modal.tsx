@@ -17,9 +17,10 @@ interface ModalProps {
   size?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  disableBackdropClose?: boolean;
 }
 
-export default function Modal({ isOpen, onClose, title, size = "md", children, footer }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, size = "md", children, footer, disableBackdropClose }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function Modal({ isOpen, onClose, title, size = "md", children, f
     <div
       role="dialog"
       aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      onClick={(e) => { if (!disableBackdropClose && e.target === e.currentTarget) onClose?.(); }}
       className="fixed inset-0 z-[1000] bg-void/85 backdrop-blur-lg flex items-center justify-center p-4 animate-fade-in"
     >
       <div ref={modalRef} className={`bg-surface-2 border border-border rounded-[var(--radius-xl)] shadow-lg w-full ${WIDTHS[size] ?? WIDTHS.md} max-h-[90vh] flex flex-col animate-scale-in`}>

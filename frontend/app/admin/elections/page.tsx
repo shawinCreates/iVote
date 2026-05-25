@@ -219,7 +219,7 @@ export default function AdminElectionsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} title="Create Election" size="lg"
+      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} title="Create Election" size="lg" disableBackdropClose
         footer={
           <>
             <Button variant="ghost" onClick={() => { setCreateOpen(false); resetForm(); }}>Cancel</Button>

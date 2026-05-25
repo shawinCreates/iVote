@@ -10,7 +10,7 @@ import Button from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import ElectionCountdown from "@/components/shared/ElectionCountdown";
 import EmptyState from "@/components/shared/EmptyState";
-import { FiCheckSquare, FiUsers, FiBarChart2, FiUser, FiClock, FiShield, FiAward } from "react-icons/fi";
+import { FiCheckSquare, FiUsers, FiBarChart2, FiUser, FiClock, FiShield, FiAward, FiPlus } from "react-icons/fi";
 
 export default function StudentDashboardPage() {
   const { user } = useAuth();
@@ -24,18 +24,14 @@ export default function StudentDashboardPage() {
       getMyCandidacy().catch(() => []),
     ]).then(([e, c]) => {
       setElections(Array.isArray(e) ? e : []);
-      setCandidacies(Array.isArray(c) ? c : c ? [c] : []);
+      setCandidacies((Array.isArray(c) ? c : c ? [c] : []).filter((x: any) => x && x.id));
       setLoading(false);
     });
   }, []);
 
   const votingElection = elections.find((e) => e.status === "voting_open");
   const nominationElections = elections.filter((e) => e.status === "nomination_open");
-  const approvedCount  = candidacies.filter((c) => c.approval_status === "approved").length;
-  const pendingCount   = candidacies.filter((c) => c.approval_status === "pending").length;
-  const hasApplied     = candidacies.length > 0;
-  const hasApproved    = approvedCount > 0;
-  const hasPending     = pendingCount > 0;
+  const approvedCount = candidacies.filter((c) => c.approval_status === "approved").length;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -64,9 +60,9 @@ export default function StudentDashboardPage() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Elections",    value: elections.length,     color: "text-cyan",    bg: "bg-cyan/10",    Icon: FiShield },
-          { label: "Applications", value: candidacies.length,   color: "text-gold",    bg: "bg-gold/10",    Icon: FiUser },
-          { label: "Approved",     value: approvedCount,        color: "text-success", bg: "bg-success/10", Icon: FiAward },
+          { label: "Elections",    value: elections.length,   color: "text-cyan",    bg: "bg-cyan/10",    Icon: FiShield },
+          { label: "Applications", value: candidacies.length, color: "text-gold",    bg: "bg-gold/10",    Icon: FiUser },
+          { label: "Approved",     value: approvedCount,      color: "text-success", bg: "bg-success/10", Icon: FiAward },
         ].map(({ label, value, color, bg, Icon }) => (
           <Card key={label}>
             <CardBody className="py-4">
@@ -104,47 +100,49 @@ export default function StudentDashboardPage() {
         </Card>
       )}
 
-      {/* Nominations / candidacy status banner */}
-      {nominationElections.length > 0 && (
-        <Card glow="cyan">
-          <CardBody>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Badge status="nomination_open" className="mb-2" />
-                <div className="font-[var(--font-display)] text-sm font-bold text-white">
-                  {nominationElections.length === 1
-                    ? nominationElections[0].name
-                    : `${nominationElections.length} elections open for nominations`}
+      {/* Per-election nomination banners */}
+      {nominationElections.map((e: any) => {
+        const myApp = candidacies.find((c: any) => c.election_id === e.id);
+        const statusText = myApp
+          ? myApp.approval_status === "approved"
+            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved — you're on the ballot.`
+            : myApp.approval_status === "pending"
+            ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
+            : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
+          : "Nominations are open — you can apply for candidacy.";
+
+        return (
+          <Card key={e.id} glow="cyan">
+            <CardBody>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <Badge status="nomination_open" className="mb-1.5" />
+                  <div className="font-[var(--font-display)] text-sm font-bold text-white truncate">{e.name}</div>
+                  <div className="text-xs text-text-3 mt-0.5">{statusText}</div>
                 </div>
-                <div className="text-xs text-text-3 mt-0.5">
-                  {hasApproved
-                    ? "Your candidacy is approved — you are on the ballot"
-                    : hasPending
-                    ? "Your application is under review"
-                    : hasApplied
-                    ? "Your application was not approved — you may re-apply"
-                    : "Applications are being accepted"}
+                <div className="flex items-center gap-2 shrink-0">
+                  {myApp && <Badge status={myApp.approval_status} />}
+                  <Link href="/student/candidacy">
+                    <Button variant="ghost" size="sm" leftIcon={myApp ? undefined : <FiPlus size={13} />}>
+                      {myApp ? "View Application" : "Apply Now"}
+                    </Button>
+                  </Link>
                 </div>
               </div>
-              <Link href="/student/candidacy">
-                <Button variant="ghost" size="sm">
-                  {hasApplied ? "View Application" : "Apply Now"}
-                </Button>
-              </Link>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+            </CardBody>
+          </Card>
+        );
+      })}
 
       {/* Quick actions */}
       <div>
         <h3 className="font-[var(--font-display)] text-[10px] font-bold text-text-3 uppercase tracking-widest mb-3">Quick Actions</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { href: "/student/candidates", label: "Candidates",    Icon: FiUsers,       color: "text-cyan",    bg: "bg-cyan/10" },
-            { href: "/student/vote",       label: "Cast Vote",     Icon: FiCheckSquare, color: "text-gold",    bg: "bg-gold/10" },
-            { href: "/student/results",    label: "Results",       Icon: FiBarChart2,   color: "text-success", bg: "bg-success/10" },
-            { href: "/student/candidacy",  label: "My Candidacy",  Icon: FiUser,        color: "text-warning", bg: "bg-warning/10" },
+            { href: "/student/candidates", label: "Candidates",   Icon: FiUsers,       color: "text-cyan",    bg: "bg-cyan/10" },
+            { href: "/student/vote",       label: "Cast Vote",    Icon: FiCheckSquare, color: "text-gold",    bg: "bg-gold/10" },
+            { href: "/student/results",    label: "Results",      Icon: FiBarChart2,   color: "text-success", bg: "bg-success/10" },
+            { href: "/student/candidacy",  label: "My Candidacy", Icon: FiUser,        color: "text-warning", bg: "bg-warning/10" },
           ].map(({ href, label, Icon, color, bg }) => (
             <Link key={href} href={href}>
               <Card hover>

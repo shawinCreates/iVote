@@ -47,7 +47,7 @@ export default function NotificationPanel() {
       {open && (
         <>
           <div onClick={() => setOpen(false)} className="fixed inset-0 z-[98]" />
-          <div className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-surface-2 border border-border rounded-[var(--radius-lg)] shadow-lg z-[99] animate-scale-in origin-top-right overflow-hidden">
+          <div className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-deep border border-border rounded-[var(--radius-lg)] shadow-lg z-[99] animate-scale-in origin-top-right overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
               <div className="font-[var(--font-display)] text-xs font-bold text-white tracking-wider uppercase">Notifications</div>
               <LuCheckCheck size={14} className="text-text-3" />

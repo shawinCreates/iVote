@@ -22,6 +22,7 @@ export default function StudentCandidacyPage() {
   const [loading, setLoading] = useState(true);
 
   const [applyOpen, setApplyOpen] = useState(false);
+  const [applyPositions, setApplyPositions] = useState<{ value: string; label: string }[]>([]);
   const [selectedPosition, setSelectedPosition] = useState("");
   const [manifesto, setManifesto] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -34,7 +35,7 @@ export default function StudentCandidacyPage() {
     setLoading(true);
     try {
       const [c, e] = await Promise.all([getMyCandidacy().catch(() => []), getElections().catch(() => [])]);
-      setCandidacies(Array.isArray(c) ? c : c ? [c] : []);
+      setCandidacies((Array.isArray(c) ? c : c ? [c] : []).filter((x: any) => x && x.id));
       setElections(Array.isArray(e) ? e : []);
     } catch {}
     setLoading(false);
@@ -44,24 +45,26 @@ export default function StudentCandidacyPage() {
 
   const nominationElections = elections.filter((el: any) => el.status === "nomination_open");
 
-  const allOpenPositions = nominationElections.flatMap((e: any) =>
-    (e.positions ?? []).map((p: any) => ({ value: String(p.id), label: `${p.name} — ${e.name}` }))
-  );
-
-  const appliedPositionIds = new Set(candidacies.map((c: any) => c.position?.id).filter(Boolean));
-  const remainingPositions = allOpenPositions.filter((p) => !appliedPositionIds.has(Number(p.value)));
-
   const electionNameMap: Record<number, string> = Object.fromEntries(
     elections.map((e: any) => [e.id, e.name])
   );
-
   const electionStatusMap: Record<number, string> = Object.fromEntries(
     elections.map((e: any) => [e.id, e.status])
   );
 
-  const hasApproved = candidacies.some((c) => c.approval_status === "approved");
-  const hasPending  = candidacies.some((c) => c.approval_status === "pending");
-  const hasAny      = candidacies.length > 0;
+  const openApply = (election: any) => {
+    const appliedInThisElection = new Set(
+      candidacies.filter((c: any) => c.election_id === election.id).map((c: any) => c.position?.id).filter(Boolean)
+    );
+    const positions = (election.positions ?? [])
+      .filter((p: any) => !appliedInThisElection.has(p.id))
+      .map((p: any) => ({ value: String(p.id), label: p.name }));
+
+    setApplyPositions(positions);
+    setSelectedPosition(positions[0]?.value ?? "");
+    setManifesto(""); setPhotoFile(null); setError("");
+    setApplyOpen(true);
+  };
 
   const handleApply = async () => {
     if (!selectedPosition) { setError("Please select a position."); return; }
@@ -70,53 +73,58 @@ export default function StudentCandidacyPage() {
       await applyForCandidacy(Number(selectedPosition), manifesto, photoFile);
       toast.success("Application submitted!");
       setApplyOpen(false);
-      setSelectedPosition(""); setManifesto(""); setPhotoFile(null);
       load();
     } catch (err) { setError(extractError(err)); }
     setSubmitting(false);
-  };
-
-  const openApply = () => {
-    setSelectedPosition(""); setManifesto(""); setPhotoFile(null); setError("");
-    setApplyOpen(true);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 
   return (
     <div className="space-y-4 animate-fade-up">
-      {/* Status banner */}
-      {hasAny && (
-        hasPending ? (
-          <Alert type="info">
-            Your application is under review. You will be notified once a decision is made.
-          </Alert>
-        ) : hasApproved ? (
-          <Alert type="success">
-            Your candidacy has been approved — your name will appear on the ballot.
-          </Alert>
-        ) : (
-          <Alert type="danger">
-            Your application was not approved.
-            {remainingPositions.length > 0 && " You may apply for a different position below."}
-          </Alert>
-        )
-      )}
 
-      <div className="flex justify-end">
-        {remainingPositions.length > 0 && !hasApproved && !hasPending && (
-          <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply for Candidacy</Button>
-        )}
-        {!hasAny && allOpenPositions.length > 0 && (
-          <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply for Candidacy</Button>
-        )}
-      </div>
+      {/* Per-election nomination banners */}
+      {nominationElections.map((e: any) => {
+        const myApp = candidacies.find((c: any) => c.election_id === e.id);
+        const appliedInThisElection = new Set(
+          candidacies.filter((c: any) => c.election_id === e.id).map((c: any) => c.position?.id).filter(Boolean)
+        );
+        const hasRemainingPositions = (e.positions ?? []).some((p: any) => !appliedInThisElection.has(p.id));
 
+        const statusText = myApp
+          ? myApp.approval_status === "approved"
+            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved — you're on the ballot.`
+            : myApp.approval_status === "pending"
+            ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
+            : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
+          : "Nominations are open — you can apply for candidacy.";
+
+        return (
+          <div key={e.id}
+            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--radius-lg)] border ${myApp ? "bg-surface-2 border-border" : "bg-cyan/8 border-cyan/20"}`}>
+            <div className="min-w-0">
+              <div className="text-[10px] font-[var(--font-display)] font-bold uppercase tracking-wider text-text-3 mb-0.5 truncate">{e.name}</div>
+              <div className="text-sm text-text-2">{statusText}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {myApp && <Badge status={myApp.approval_status} />}
+              {!myApp && hasRemainingPositions && (
+                <Button size="sm" leftIcon={<FiPlus size={13} />} onClick={() => openApply(e)}>Apply Now</Button>
+              )}
+              {myApp?.approval_status === "rejected" && hasRemainingPositions && (
+                <Button size="sm" variant="ghost" leftIcon={<FiPlus size={13} />} onClick={() => openApply(e)}>Apply for Another</Button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Candidacy cards */}
       {candidacies.length === 0 ? (
         <Card><CardBody>
           <EmptyState title="No applications" message="You haven't applied for any candidacy yet."
-            action={allOpenPositions.length > 0
-              ? <Button onClick={openApply} leftIcon={<FiPlus size={14} />}>Apply Now</Button>
+            action={nominationElections.length > 0
+              ? <Button onClick={() => openApply(nominationElections[0])} leftIcon={<FiPlus size={14} />}>Apply Now</Button>
               : undefined} />
         </CardBody></Card>
       ) : (
@@ -128,7 +136,6 @@ export default function StudentCandidacyPage() {
               <Card key={c.id}>
                 <CardBody>
                   <div className="flex items-start gap-4">
-                    {/* Avatar */}
                     <div className="w-12 h-12 rounded-full overflow-hidden border border-border shrink-0">
                       <ProtectedImage
                         url={getCandidatePhotoUrl(c.id)}
@@ -187,7 +194,7 @@ export default function StudentCandidacyPage() {
           {error && <Alert type="danger">{error}</Alert>}
           <Select label="Position" name="position" value={selectedPosition}
             onChange={(e) => setSelectedPosition(e.target.value)}
-            options={remainingPositions.length > 0 ? remainingPositions : allOpenPositions} placeholder="Select a position" required />
+            options={applyPositions} placeholder="Select a position" required />
           <FileUpload
             label="Campaign Photo"
             accept="image/*"
@@ -212,7 +219,6 @@ export default function StudentCandidacyPage() {
           const resultsPublished = c.election_id && electionStatusMap[c.election_id] === "results_published";
           return (
             <div className="space-y-5">
-              {/* Photo */}
               <div className="flex justify-center">
                 <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-border">
                   <ProtectedImage
@@ -224,11 +230,8 @@ export default function StudentCandidacyPage() {
                 </div>
               </div>
 
-              {/* Name + status */}
               <div className="text-center">
-                <div className="font-[var(--font-display)] text-base font-bold text-white mb-1">
-                  {u.full_name ?? "—"}
-                </div>
+                <div className="font-[var(--font-display)] text-base font-bold text-white mb-1">{u.full_name ?? "—"}</div>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   <Badge status={c.approval_status ?? "pending"} />
                   {resultsPublished && c.votes_received != null && (
@@ -240,14 +243,13 @@ export default function StudentCandidacyPage() {
                 </div>
               </div>
 
-              {/* Academic details */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
                   ["Position",  c.position?.name ?? "—"],
                   ["Election",  electionName],
                   ["Faculty",   u.faculty  ?? "—"],
                   ["Program",   u.program  ?? "—"],
-                  ["Year",      u.year     != null ? `Year ${u.year}`     : "—"],
+                  ["Year",      u.year     != null ? `Year ${u.year}`         : "—"],
                   ["Semester",  u.semester != null ? `Semester ${u.semester}` : "—"],
                   ["Applied",   c.applied_at ? fmtDateTime(c.applied_at) : "—"],
                   ["Reg. No.",  u.tu_registration_number ?? "—"],
@@ -259,12 +261,8 @@ export default function StudentCandidacyPage() {
                 ))}
               </div>
 
-              {/* Rejection reason */}
-              {c.rejection_reason && (
-                <Alert type="danger">Rejected: {c.rejection_reason}</Alert>
-              )}
+              {c.rejection_reason && <Alert type="danger">Rejected: {c.rejection_reason}</Alert>}
 
-              {/* Manifesto */}
               {c.manifesto && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] font-bold mb-2">Manifesto</div>
