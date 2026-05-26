@@ -88,7 +88,7 @@ async def root():
     }
 
 
-@app.get("/health", tags=["Health"], include_in_schema=True)
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
 async def health(db: Session = Depends(get_db)):
     """Liveness + readiness probe used by Render and Railway."""
     db_status = "connected"
