@@ -293,38 +293,29 @@ def run_tally_job(election_id: int) -> None:
         election = (
             db.query(Election)
             .filter(Election.id == election_id)
+            .with_for_update()
             .first()
         )
 
-        if not election:
+        if not election or election.he_tally_completed:
             return
 
         _run_he_tally(db, election)
-
-        election.he_tally_completed = True
-
-        _audit(
-            db,
-            "HE_TALLY_COMPLETED",
-            None,
-            actor_role="system",
-            election_id=election.id,
-            details="Homomorphic tally completed successfully.",
-        )
-
-        db.commit()
 
     except Exception as err:
         db.rollback()
 
         try:
+            msg = str(err).split("[SQL:")[0].strip()
+            if len(msg) > 300:
+                msg = msg[:300] + "…"
             _audit(
                 db,
                 "HE_TALLY_FAILED",
                 None,
                 actor_role="system",
                 election_id=election_id,
-                details=str(err),
+                details=msg,
             )
             db.commit()
         except Exception:
@@ -438,13 +429,7 @@ def tick() -> None:
                         f"[Scheduler] Recovering missed tally "
                         f"for election {election.id}"
                     )
-
-                    # Avoid duplicate queueing if scheduler ticks repeatedly
-                    election.he_tally_completed = False
-                    db.commit()
-
                     _tally_executor.submit(run_tally_job, election.id)
-
                     break
                 if not changed:
                     break

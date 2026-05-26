@@ -1,4 +1,4 @@
-import os as _os
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -11,7 +11,6 @@ from app.services.face_verification_service import MAX_RETRIES, check_liveness, 
 from app.services.voting_service import cast_he_ballot, get_participation
 from app.utils.dependencies import require_verified
 from app.utils.helpers import _now
-from app.core.cloudinary_service import is_cloudinary_url, download_to_tempfile  # NEW
 
 router = APIRouter(prefix="/api", tags=["Voting"])
 
@@ -28,28 +27,7 @@ async def face_verify(
             detail="No profile photo on file. Please contact the Election Head.",
         )
 
-    # ── Resolve profile photo to a local filesystem path ──────────────────────
-    # Stored value is either a Cloudinary HTTPS URL or a relative local path.
-    profile_path_raw = str(user.profile_photo_path)
-    _temp_profile = None   # track temp file for cleanup
-
-    if is_cloudinary_url(profile_path_raw):
-        try:
-            _temp_profile = download_to_tempfile(profile_path_raw)
-            profile_path  = _temp_profile
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Could not fetch profile photo from cloud: {exc}",
-            )
-    else:
-        from app.core.config import BASE_DIR
-        profile_path = str(BASE_DIR / profile_path_raw)
-        if not _os.path.isfile(profile_path):
-            raise HTTPException(
-                status_code=500,
-                detail="Profile photo could not be found on the server. Contact support.",
-            )
+    profile_source = str(user.profile_photo_path)
 
     try:
         # ── Step 1: liveness check ──────────────────────────────────────────
@@ -70,17 +48,13 @@ async def face_verify(
                 )
 
         # ── Step 2: face match ──────────────────────────────────────────────
-        result = verify_face(profile_path, payload.live_image_b64)
+        result = verify_face(profile_source, payload.live_image_b64)
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up temp file (Cloudinary download) regardless of outcome
-        if _temp_profile and _os.path.exists(_temp_profile):
-            _os.unlink(_temp_profile)
 
-    # Audit the attempt
     _audit(
         db, "FACE_VERIFY_ATTEMPT", user.id,
         actor_role="student",
