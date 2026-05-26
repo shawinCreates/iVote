@@ -77,6 +77,17 @@ app.include_router(users.router)
 app.include_router(voting.router)
 
 
+@app.get("/", tags=["Root"], include_in_schema=False)
+async def root():
+    return {
+        "service": "Secure Online Voting System API",
+        "version": "1.0.0",
+        "status":  "running",
+        "docs":    "/docs",
+        "health":  "/health",
+    }
+
+
 @app.get("/health", tags=["Health"], include_in_schema=True)
 async def health(db: Session = Depends(get_db)):
     """Liveness + readiness probe used by Render and Railway."""
