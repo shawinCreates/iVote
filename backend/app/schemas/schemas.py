@@ -41,6 +41,15 @@ class PositionIn(BaseModel):
     description: Optional[str] = None
     max_votes: int = 1
 
+    @field_validator("max_votes")
+    @classmethod
+    def max_votes_range(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("max_votes must be at least 1")
+        if v > 5:
+            raise ValueError("max_votes cannot exceed 5")
+        return v
+
 class PositionOut(BaseModel):
     id: int
     name: str
@@ -57,6 +66,13 @@ class ElectionIn(BaseModel):
     voting_start: datetime
     voting_end: datetime
     positions: List[PositionIn]
+
+    @field_validator("positions")
+    @classmethod
+    def at_least_one_position(cls, v: list) -> list:
+        if not v:
+            raise ValueError("Election must have at least one position")
+        return v
 
     @field_validator("nomination_start")
     @classmethod

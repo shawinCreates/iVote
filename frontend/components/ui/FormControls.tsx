@@ -95,13 +95,13 @@ export function Select({ label, name, options = [], placeholder, hint, error, cl
         />
 
         {open && (
-          <div className="absolute z-50 top-[calc(100%+4px)] left-0 w-full bg-[#0f1621] border border-border rounded-[var(--radius-md)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden max-h-56 overflow-y-auto">
+          <div className="absolute z-50 top-[calc(100%+4px)] left-0 w-full bg-[var(--color-deep)] border border-[var(--color-border-bright)] rounded-[var(--radius-md)] shadow-[0_8px_24px_rgba(0,0,0,0.18)] overflow-hidden max-h-56 overflow-y-auto">
             {placeholder && (
               <button
                 type="button"
                 onClick={() => handlePick("")}
                 className={`w-full text-left px-3.5 py-2.5 text-sm bg-transparent border-none cursor-pointer transition-colors
-                  ${!value ? "text-cyan bg-cyan-dim" : "text-text-3 hover:bg-white/[0.04]"}`}
+                  ${!value ? "text-cyan bg-cyan-dim" : "text-text-3 hover:bg-[var(--color-surface-2)]"}`}
               >
                 {placeholder}
               </button>
@@ -116,7 +116,7 @@ export function Select({ label, name, options = [], placeholder, hint, error, cl
                   type="button"
                   onClick={() => handlePick(val)}
                   className={`w-full text-left px-3.5 py-2.5 text-sm bg-transparent border-none cursor-pointer transition-colors
-                    ${isActive ? "text-cyan bg-cyan-dim" : "text-text-1 hover:bg-white/[0.04]"}`}
+                    ${isActive ? "text-cyan bg-cyan-dim" : "text-text-1 hover:bg-[var(--color-surface-2)]"}`}
                 >
                   {lbl}
                 </button>

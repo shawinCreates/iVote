@@ -306,13 +306,16 @@ def run_tally_job(election_id: int) -> None:
         db.rollback()
 
         try:
+            msg = str(err).split("[SQL:")[0].strip()
+            if len(msg) > 300:
+                msg = msg[:300] + "…"
             _audit(
                 db,
                 "HE_TALLY_FAILED",
                 None,
                 actor_role="system",
                 election_id=election_id,
-                details=str(err),
+                details=msg,
             )
             db.commit()
         except Exception:

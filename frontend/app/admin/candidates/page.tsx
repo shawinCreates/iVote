@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { adminGetPendingCandidates, adminGetAllCandidates, adminApproveCandidate, adminRejectCandidate, getCandidatePhotoUrl, getStudentIdCardUrl, openProtectedFile, extractError } from "@/lib/api";
+import { adminGetPendingCandidates, adminGetAllCandidates, adminGetElections, adminApproveCandidate, adminRejectCandidate, getCandidatePhotoUrl, getStudentIdCardUrl, openProtectedFile, extractError } from "@/lib/api";
 import { fmtDateTime } from "@/lib/formatters";
 import { Card, CardBody } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/FormControls";
+import { Input, Select, Textarea } from "@/components/ui/FormControls";
 import Modal from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
 import EmptyState from "@/components/shared/EmptyState";
@@ -21,22 +21,30 @@ export default function AdminCandidatesPage() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [elections, setElections] = useState<any[]>([]);
+  const [electionFilter, setElectionFilter] = useState<number | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [rejectTarget, setRejectTarget] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [confirmApprove, setConfirmApprove] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  useEffect(() => {
+    adminGetElections().then((data) => setElections(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
+
   const load = async () => {
     setLoading(true);
     try {
-      const data = tab === "pending" ? await adminGetPendingCandidates() : await adminGetAllCandidates();
+      const data = tab === "pending"
+        ? await adminGetPendingCandidates(electionFilter)
+        : await adminGetAllCandidates(electionFilter);
       setCandidates(Array.isArray(data) ? data : []);
     } catch { setCandidates([]); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [tab]);
+  useEffect(() => { load(); }, [tab, electionFilter]);
 
   const filtered = candidates.filter((c) => {
     const q = search.toLowerCase();
@@ -86,8 +94,18 @@ export default function AdminCandidatesPage() {
             </button>
           ))}
         </div>
-        <Input name="search" placeholder="Search..." value={search}
-          onChange={(e) => setSearch(e.target.value)} leftIcon={<FiSearch size={14} />} className="w-full sm:w-64" />
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Select
+            name="election-filter"
+            value={electionFilter ?? ""}
+            onChange={(e) => setElectionFilter(e.target.value ? Number(e.target.value) : null)}
+            options={elections.map((e: any) => ({ value: e.id, label: e.name }))}
+            placeholder="All elections"
+            className="w-full sm:w-48"
+          />
+          <Input name="search" placeholder="Search..." value={search}
+            onChange={(e) => setSearch(e.target.value)} leftIcon={<FiSearch size={14} />} className="w-full sm:w-52" />
+        </div>
       </div>
 
       {/* Table */}

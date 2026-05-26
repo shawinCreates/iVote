@@ -110,13 +110,22 @@ export default function AdminElectionsPage() {
   };
 
   const handleCreate = async () => {
+    const validPositions = positions.filter((p) => p.name.trim());
+    if (validPositions.length === 0) {
+      toast.error("Add at least one position before creating the election");
+      return;
+    }
+    if (validPositions.some((p) => p.max_votes < 1 || p.max_votes > 5)) {
+      toast.error("Each position must allow between 1 and 5 winners");
+      return;
+    }
     setActionLoading(true);
     try {
       await adminCreateElection({
         name, description,
         nomination_start: nominationStart, nomination_end: nominationEnd,
         voting_start: votingStart, voting_end: votingEnd,
-        positions: positions.filter((p) => p.name.trim()),
+        positions: validPositions,
       });
       toast.success("Election created");
       setCreateOpen(false);
@@ -259,8 +268,8 @@ export default function AdminElectionsPage() {
                     onChange={(e) => { const next = [...positions]; next[i].name = e.target.value; setPositions(next); }} />
                 </div>
                 <div className="w-20">
-                  <Input name={`max-${i}`} type="number" value={p.max_votes}
-                    onChange={(e) => { const next = [...positions]; next[i].max_votes = Number(e.target.value); setPositions(next); }} />
+                  <Input name={`max-${i}`} type="number" value={p.max_votes} min={1} max={5}
+                    onChange={(e) => { const next = [...positions]; next[i].max_votes = Math.min(5, Math.max(1, Number(e.target.value))); setPositions(next); }} />
                 </div>
                 {positions.length > 1 && (
                   <button onClick={() => setPositions(positions.filter((_, j) => j !== i))}
