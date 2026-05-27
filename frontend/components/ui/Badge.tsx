@@ -1,7 +1,8 @@
 "use client";
 
 const BADGE_MAP: Record<string, string> = {
-  draft: "bg-surface-2 text-text-3 border-border",
+  draft:    "bg-surface-2 text-text-3 border-border",
+  upcoming: "bg-gold-dim text-gold border-gold/30",
   nomination_open: "bg-gold-dim text-gold border-gold/30",
   nomination_closed: "bg-surface-2 text-text-2 border-border",
   voting_open: "bg-cyan-dim text-cyan border-cyan/30",

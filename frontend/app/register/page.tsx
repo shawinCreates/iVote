@@ -20,17 +20,12 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 // Programs offered at Bhaktapur Multiple Campus (TU constituent)
 const FACULTY_PROGRAMS: Record<string, string[]> = {
   "Science and Technology": [
-    "B.Sc. CSIT", "BCA",
-    "B.Sc. Physics", "B.Sc. Chemistry", "B.Sc. Mathematics", "B.Sc. Microbiology",
+    "BIT", "B.Sc. CSIT",
+    "B.Sc. Physics", "B.Sc. Biology", "MIT",
   ],
-  "Management": ["BBS"],
+  "Management": ["BBS", "BBA", "BITM", "BBM", "MBA", "MBS", ],
   "Humanities and Social Science": [
-    "BA (Sociology)", "BA (Political Science)", "BA (Economics)",
-    "BA (English)", "BA (Nepali)", "BA (History)",
-  ],
-  "Education": [
-    "B.Ed. (English)", "B.Ed. (Mathematics)", "B.Ed. (Science)",
-    "B.Ed. (Social Studies)", "B.Ed. (Nepali)", "B.Ed. (Population Education)",
+    "BCA", "BA", "RD", "MA Sociology"
   ],
 };
 

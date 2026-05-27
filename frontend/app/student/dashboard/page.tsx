@@ -31,6 +31,7 @@ export default function StudentDashboardPage() {
 
   const votingElection = elections.find((e) => e.status === "voting_open");
   const nominationElections = elections.filter((e) => e.status === "nomination_open");
+  const upcomingElections = elections.filter((e) => e.status === "draft");
   const approvedCount = candidacies.filter((c) => c.approval_status === "approved").length;
 
   const hour = new Date().getHours();
@@ -133,6 +134,27 @@ export default function StudentDashboardPage() {
           </Card>
         );
       })}
+
+      {/* Upcoming elections */}
+      {upcomingElections.map((e: any) => (
+        <Card key={e.id}>
+          <CardBody>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Badge status="upcoming" className="mb-1.5">Upcoming</Badge>
+                <div className="font-[var(--font-display)] text-sm font-bold text-white truncate">{e.name}</div>
+                {e.description && <div className="text-xs text-text-3 mt-0.5">{e.description}</div>}
+                {e.nomination_start && (
+                  <div className="text-xs text-text-3 mt-1 flex items-center gap-1">
+                    <FiClock size={10} />
+                    Nominations open {fmtDateTime(e.nomination_start)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      ))}
 
       {/* Quick actions */}
       <div>

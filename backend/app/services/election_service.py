@@ -47,15 +47,16 @@ def get_elections(db: Session) -> List[Election]:
 
 
 def get_active_elections(db: Session) -> List[Election]:
-    """Returns elections that students can currently interact with."""
+    """Returns elections visible to students: upcoming (draft) through voting."""
     return (
         db.query(Election)
         .filter(Election.status.in_([
+            ElectionStatus.DRAFT,
             ElectionStatus.NOMINATION_OPEN,
             ElectionStatus.NOMINATION_CLOSED,
             ElectionStatus.VOTING_OPEN,
         ]))
-        .order_by(Election.voting_start)
+        .order_by(Election.nomination_start.nullslast(), Election.voting_start)
         .all()
     )
 
