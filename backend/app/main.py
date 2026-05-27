@@ -1,38 +1,72 @@
 import os
-from fastapi import  FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from app.db.database import engine, Base
-from app.services.schedular_service import start
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db.database import engine, Base, get_db
+from app.services.schedular_service import start
+from app.core.middleware import (
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+)
 from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
-from app.core.config import BASE_DIR
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="iVote API",
-    description="Backend service for iVote application",
-    version="1.0.0"
-)
 
-_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:8000")
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+def _parse_origins(raw: str) -> list[str]:
+    origins = []
+    for o in raw.split(","):
+        o = o.strip().rstrip("/")
+        if not o:
+            continue
+        if o == "*":
+            return ["*"]
+        if not o.startswith("http://") and not o.startswith("https://"):
+            o = f"https://{o}"
+        origins.append(o)
+    return origins
+
+
+_DEFAULT_ORIGINS = ["http://localhost:3000"]
+_env_origins     = _parse_origins(os.getenv("CORS_ORIGINS", ""))
+ALLOWED_ORIGINS  = list(dict.fromkeys(_DEFAULT_ORIGINS + _env_origins)) or ["*"]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        start()
+    except Exception as e:
+        print(f"[WARNING] Scheduler failed to start: {e}")
+    yield
+
+
+app = FastAPI(
+    title="Secure Online Voting System API",
+    description="Secure online voting system with homomorphic encryption",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "frontend" / "static")), name="static")
-app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
-
-templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
 app.include_router(auth.router)
 app.include_router(student_router)
@@ -42,33 +76,33 @@ app.include_router(results.router)
 app.include_router(users.router)
 app.include_router(voting.router)
 
-@app.on_event("startup")
-async def startup():
-    start()
 
-# Page routes
-def page(tpl: str):
-    async def _handler(request: Request, tpl_name=tpl):
-        return templates.TemplateResponse(request, tpl_name, {"request": request})
-    return _handler
+@app.get("/", tags=["Root"], include_in_schema=False)
+async def root():
+    return {
+        "service": "Secure Online Voting System API",
+        "version": "1.0.0",
+        "status":  "running",
+        "docs":    "/docs",
+        "health":  "/health",
+    }
 
-app.add_route("/",                    page("login.html"),                   methods=["GET"])
-app.add_route("/register",            page("register.html"),                methods=["GET"])
-app.add_route("/forgot-password",     page("forgot_password.html"),    methods=["GET"])
-app.add_route("/reset-password",      page("reset_password.html"),     methods=["GET"])
-app.add_route("/terms",               page("terms.html"),              methods=["GET"])
 
-# Student
-app.add_route("/student/dashboard",   page("student/dashboard.html"),       methods=["GET"])
-app.add_route("/student/candidates",  page("student/candidates.html"),      methods=["GET"])
-app.add_route("/student/vote",        page("student/vote.html"),            methods=["GET"])
-app.add_route("/student/results",     page("student/results.html"),         methods=["GET"])
-app.add_route("/student/candidacy",   page("student/candidacy.html"),       methods=["GET"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
+async def health(db: Session = Depends(get_db)):
+    """Liveness + readiness probe used by Render and Railway."""
+    db_status = "connected"
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "disconnected"
 
-# Admin
-app.add_route("/admin/dashboard",     page("admin/dashboard.html"),         methods=["GET"])
-app.add_route("/admin/students",      page("admin/students.html"),          methods=["GET"])
-app.add_route("/admin/elections",     page("admin/elections.html"),         methods=["GET"])
-app.add_route("/admin/candidates",    page("admin/candidates.html"),        methods=["GET"])
-app.add_route("/admin/results",       page("admin/results.html"),           methods=["GET"])
-app.add_route("/admin/audit",         page("admin/audit.html"),             methods=["GET"])
+    healthy = db_status == "connected"
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status":    "healthy" if healthy else "unhealthy",
+            "database":  db_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )

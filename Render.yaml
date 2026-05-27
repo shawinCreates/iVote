@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: ivote-api
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      # ── App ──────────────────────────────────────────────────────────────────
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+
+      # ── Database (Neon) ───────────────────────────────────────────────────────
+      # Set this in the Render dashboard to your Neon connection string:
+      # postgresql://<user>:<pass>@<host>/onlinevotingdb?sslmode=require&channel_binding=require
+      - key: DATABASE_URL
+        sync: false
+
+      # ── CORS ─────────────────────────────────────────────────────────────────
+      # Comma-separated list of allowed frontend origins, e.g.:
+      # https://ivote.vercel.app,https://ivote.onrender.com
+      - key: CORS_ORIGINS
+        sync: false
+
+      # ── Email (Frontend URL for password-reset links) ─────────────────────────
+      # Set APP_URL to your frontend URL so reset links work correctly
+      - key: APP_URL
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: FROM_NAME
+        value: "iVote — Campus Election System"
+
+      # ── Cloudinary ────────────────────────────────────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── SendGrid ──────────────────────────────────────────────────────────────
+      - key: SENDGRID_API_KEY
+        sync: false
+
+      # ── Face verification ─────────────────────────────────────────────────────
+      - key: FACE_VERIFY_THRESHOLD
+        value: "0.70"
+      - key: LIVENESS_EAR_DROP
+        value: "0.018"
+      - key: LIVENESS_EAR_VAR
+        value: "0.00008"
