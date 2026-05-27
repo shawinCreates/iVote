@@ -13,15 +13,15 @@ def get_election_results(db: Session, election_id: int) -> ElectionResults:
     if not election:
         raise ValueError("Election not found")
 
-    total_eligible = (db.query(User)
-                  .filter(User.is_verified == True,
-                          User.is_active == True,
-                          User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
-                  .count())
-    total_cast = (db.query(VoterParticipation)
-                  .filter(VoterParticipation.election_id == election_id)
-                  .count())
-    turnout = round((total_cast / total_eligible * 100) if total_eligible else 0, 2)
+   # Use stored historical snapshots
+    total_eligible = election.eligible_voters or 0
+    total_cast = election.turnout_voters or 0
+
+    turnout = round(
+        (total_cast / total_eligible * 100)
+        if total_eligible else 0,
+        2
+    )
 
     position_results = []
     all_verified = True
@@ -51,10 +51,13 @@ def get_election_results(db: Session, election_id: int) -> ElectionResults:
                 candidate_id=cid,
                 candidate_name=cand.user.full_name if cand else f"#{cid}",
                 photo_path=cand.photo_path if cand else None,
-                party_affiliation=cand.party_affiliation if cand else None,
                 vote_count=count,
                 percentage=pct,
                 is_winner=is_winner,
+                faculty=cand.user.faculty if cand and cand.user else None,
+                program=cand.user.program if cand and cand.user else None,
+                year=str(cand.user.year) if cand and cand.user and cand.user.year else None,
+                semester=cand.user.semester if cand and cand.user else None,
             ))
 
         # Verify using only the public key 
@@ -110,7 +113,7 @@ def publish_results(db: Session, election_id: int, admin_id: int,
         raise ValueError("Homomorphic tally is not yet complete. Please wait.")
     e.status = ElectionStatus.RESULTS_PUBLISHED
     e.results_published_at = _now()
-    _audit(db, "RESULTS_PUBLISHED", admin_id, election_id=election_id,
+    _audit(db, "RESULTS_PUBLISHED", admin_id, actor_role="admin", election_id=election_id,
            details="Results published to students", ip=ip)
     
     try:
@@ -128,4 +131,3 @@ def publish_results(db: Session, election_id: int, admin_id: int,
     db.commit()
     db.refresh(e)
     return e
-

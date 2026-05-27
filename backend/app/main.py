@@ -1,43 +1,91 @@
 import os
+from contextlib import asynccontextmanager
 
-from fastapi import  FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from app.db.database import engine, Base
 from app.services.schedular_service import start
+from app.core.middleware import (
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware
+)
 
 from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
-from app.core.config import BASE_DIR
-
 
 Base.metadata.create_all(bind=engine)
+
+
+def _normalize_origin(origin: str) -> str | None:
+    origin = origin.strip().rstrip('/')
+    if not origin:
+        return None
+    if origin == '*':
+        return origin
+    if not origin.startswith('http://') and not origin.startswith('https://'):
+        origin = f'https://{origin}'
+    return origin
+
+_DEFAULT_ORIGINS = [
+    'http://localhost:3000',
+]
+_raw_origins = os.getenv('CORS_ORIGINS', '')
+_env_origins = [n for o in _raw_origins.split(',') if (n := _normalize_origin(o))]
+ALLOWED_ORIGINS = list(dict.fromkeys(_DEFAULT_ORIGINS + _env_origins))
+
+
+class DevFallbackCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.method == "OPTIONS":
+            response = Response(status_code=200)
+        else:
+            response = await call_next(request)
+
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "600"
+        return response
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        start()
+    except Exception as e:
+        print(f"[WARNING] Scheduler failed to start: {e}")
+    yield
+    # Shutdown (add cleanup here if needed)
+
 
 app = FastAPI(
     title="iVote API",
     description="Backend service for iVote application",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:8000")
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+# Add fallback CORS middleware first so every response carries the header.
+app.add_middleware(DevFallbackCORSMiddleware)
 
+# Add standard CORS middleware for proper OPTIONS/preflight behavior.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=['*'],  # development convenience
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
-app.mount(
-    "/static",
-    StaticFiles(directory=str(BASE_DIR / "frontend" / "static")),
-    name="static",
-)
-
-templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
+# Add custom middleware (order matters - first added is first executed)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
 app.include_router(auth.router)
 app.include_router(student_router)
@@ -46,31 +94,3 @@ app.include_router(elections.router)
 app.include_router(results.router)
 app.include_router(users.router)
 app.include_router(voting.router)
-
-@app.on_event("startup")
-async def startup():
-    start()
-
-# Page routes
-def page(tpl: str):
-    async def _handler(request: Request, tpl_name=tpl):
-        return templates.TemplateResponse(request, tpl_name, {"request": request})
-    return _handler
-
-app.add_route("/",                    page("login.html"),                   methods=["GET"])
-app.add_route("/register",            page("register.html"),                methods=["GET"])
-
-# Student
-app.add_route("/student/dashboard",   page("student/dashboard.html"),       methods=["GET"])
-app.add_route("/student/candidates",  page("student/candidates.html"),      methods=["GET"])
-app.add_route("/student/vote",        page("student/vote.html"),            methods=["GET"])
-app.add_route("/student/results",     page("student/results.html"),         methods=["GET"])
-app.add_route("/student/candidacy",   page("student/candidacy.html"),       methods=["GET"])
-
-# Admin
-app.add_route("/admin/dashboard",     page("admin/dashboard.html"),         methods=["GET"])
-app.add_route("/admin/students",      page("admin/students.html"),          methods=["GET"])
-app.add_route("/admin/elections",     page("admin/elections.html"),         methods=["GET"])
-app.add_route("/admin/candidates",    page("admin/candidates.html"),        methods=["GET"])
-app.add_route("/admin/results",       page("admin/results.html"),           methods=["GET"])
-app.add_route("/admin/audit",         page("admin/audit.html"),             methods=["GET"])

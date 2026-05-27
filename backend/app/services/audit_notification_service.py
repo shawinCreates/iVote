@@ -4,13 +4,12 @@ from app.db.models import ApprovalStatus, AuditLog, Candidate, Election, Electio
 
 def get_admin_stats(db: Session) -> dict:
     return {
-        "total_students":        db.query(User).filter(User.is_active == True, User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE])).count(),
+        "total_students": db.query(User).filter(User.is_active == True, User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE])).count(),
         "pending_verifications": db.query(User).filter(User.is_active == True, User.is_verified == False, User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE])).count(),
-        "verified_students":     db.query(User).filter(User.is_active == True, User.is_verified == True, User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE])).count(),
-        "total_elections":       db.query(Election).count(),
-        "active_elections":      db.query(Election).filter(Election.status == ElectionStatus.VOTING_OPEN).count(),
-        "pending_candidates":    db.query(Candidate).filter(Candidate.approval_status == ApprovalStatus.PENDING).count(),
-        "total_votes_cast":      db.query(VoterParticipation).count(),
+        "verified_students": db.query(User).filter(User.is_active == True, User.is_verified == True, User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE])).count(),
+        "total_elections": db.query(Election).count(),
+        "active_elections": db.query(Election).filter(Election.status == ElectionStatus.VOTING_OPEN).count(),
+        "pending_candidates": db.query(Candidate).filter(Candidate.approval_status == ApprovalStatus.PENDING).count(),
     }
 
 def get_audit_logs(db: Session, skip: int = 0, limit: int = 200) -> list:
@@ -32,10 +31,10 @@ def mark_notifications_read(db: Session, user_id: int) -> None:
      .update({"is_read": True}))
     db.commit()
 
-def _audit(db: Session, action: str, user_id: Optional[int],
+def _audit(db: Session, action: str, user_id: Optional[int], actor_role: Optional[str] = "system",
            election_id: Optional[int] = None, details: str = None,
            ip: str = None) -> None:
-    db.add(AuditLog(action=action, user_id=user_id, election_id=election_id,
+    db.add(AuditLog(action=action, user_id=user_id,actor_role  = actor_role or "system", election_id=election_id,
                     details=details, ip_address=ip))
 
 def _notify(db: Session, user_id: int, title: str, message: str,

@@ -2,8 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
-
+from pydantic import BaseModel, EmailStr, field_validator
 from app.db.models import ApprovalStatus, ElectionStatus, UserRole
 
 MANIFESTO_MAX_LEN = 5000 
@@ -12,14 +11,20 @@ MANIFESTO_MAX_LEN = 5000
 class UserOut(BaseModel):
     id: int
     email: EmailStr
-    full_name: str
+    full_name: Optional[str]
     tu_registration_number: str
-    faculty: str
-    year: int
+    faculty: Optional[str]
+    program: Optional[str] = None
+    year: Optional[int]
+    semester: Optional[int] = None
     role: UserRole
     is_verified: bool
     is_active: bool
+    registration_stage: Optional[str] = None
+    id_card_path: Optional[str] = None
+    profile_photo_path: Optional[str] = None
     rejection_reason: Optional[str] = None
+    last_face_verification_at: Optional[datetime] = None
     created_at: datetime
     class Config:
         from_attributes = True
@@ -35,6 +40,15 @@ class PositionIn(BaseModel):
     name: str
     description: Optional[str] = None
     max_votes: int = 1
+
+    @field_validator("max_votes")
+    @classmethod
+    def max_votes_range(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("max_votes must be at least 1")
+        if v > 5:
+            raise ValueError("max_votes cannot exceed 5")
+        return v
 
 class PositionOut(BaseModel):
     id: int
@@ -52,6 +66,13 @@ class ElectionIn(BaseModel):
     voting_start: datetime
     voting_end: datetime
     positions: List[PositionIn]
+
+    @field_validator("positions")
+    @classmethod
+    def at_least_one_position(cls, v: list) -> list:
+        if not v:
+            raise ValueError("Election must have at least one position")
+        return v
 
     @field_validator("nomination_start")
     @classmethod
@@ -109,7 +130,11 @@ class CandidateOut(BaseModel):
     user_id: int
     position_id: int
     manifesto: Optional[str]
-    party_affiliation: Optional[str]
+    election_id: Optional[int] = None
+    votes_received: Optional[int] = None  
+    facebook_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    contact_email: Optional[str] = None
     photo_path: Optional[str]
     approval_status: ApprovalStatus
     rejection_reason: Optional[str]
@@ -124,10 +149,14 @@ class CandidateOut(BaseModel):
 
 # Voting — HE ballot
 class EncBallotIn(BaseModel):
-    """One position's encrypted ballot from the browser."""
-    position_id:           int
-    candidate_ids:         List[int]   # server-side validation only
+    position_id: int
+    candidate_ids: List[int] 
     encrypted_ballot_json: str
+
+class FaceVerifyIn(BaseModel):
+    live_image_b64: str                        # base64 JPEG/PNG — the face-match frame
+    liveness_frames: list[str] = []            # sequence of frames for blink detection
+
 
 class HEBallotIn(BaseModel):
     election_id: int
@@ -151,10 +180,13 @@ class CandidateResult(BaseModel):
     candidate_id: int
     candidate_name: str
     photo_path: Optional[str]
-    party_affiliation: Optional[str]
     vote_count: int
     percentage: float
     is_winner: bool
+    faculty: Optional[str]
+    program: Optional[str]
+    year: Optional[str]
+    semester: Optional[int]
 
 class PositionResult(BaseModel):
     position_id: int
@@ -181,7 +213,7 @@ class RejectReasonIn(BaseModel):
 
 class NotificationOut(BaseModel):
     id: int
-    election_id: Optional[int] = None   # Fix #16
+    election_id: Optional[int] = None
     title: str
     message: str
     notification_type: str
@@ -199,3 +231,10 @@ class HEPublicKeyOut(BaseModel):
     election_id: int
     public_key_json: str
     fingerprint: str
+
+class LiveStatsOut(BaseModel):
+    election_id: int
+    election_name: str
+    votes_cast: int
+    total_eligible: int
+    turnout_pct: float

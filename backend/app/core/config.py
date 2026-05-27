@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-load_dotenv()
+load_dotenv(BASE_DIR / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -23,6 +23,8 @@ ID_CARD_DIR = UPLOAD_DIR / "id_cards"
 ID_CARD_DIR.mkdir(parents=True, exist_ok=True)
 CANDIDATE_PHOTO_DIR = UPLOAD_DIR / "candidates_photo"
 CANDIDATE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_PHOTO_DIR = UPLOAD_DIR / "profile_photo"
+PROFILE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
 
 _ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/jpg"}
 _MAX_PHOTO_BYTES     = 5 * 1024 * 1024   # 5 MB

@@ -122,7 +122,7 @@ def cast_he_ballot(db: Session, user_id: int,
                 encrypted_ballot_json=pos_ballot.encrypted_ballot_json,
             ))
 
-        _audit(db, "HE_VOTE_CAST", user_id, election_id=ballot.election_id,
+        _audit(db, "HE_VOTE_CAST", user_id, actor_role="student", election_id=ballot.election_id,
                details=f"Encrypted ballot submitted. Code: {code}", ip=ip)
         db.commit()
 
