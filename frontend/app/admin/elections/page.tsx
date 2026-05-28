@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { adminGetElections, adminCreateElection, adminUpdateStatus, extractError } from "@/lib/api";
-import { fmtDateTime, fmtRelative } from "@/lib/formatters";
+import { fmtDateTime, fmtRelative, nptToISO } from "@/lib/formatters";
 import { Card, CardBody } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -123,8 +123,10 @@ export default function AdminElectionsPage() {
     try {
       await adminCreateElection({
         name, description,
-        nomination_start: nominationStart, nomination_end: nominationEnd,
-        voting_start: votingStart, voting_end: votingEnd,
+        nomination_start: nptToISO(nominationStart),
+        nomination_end:   nptToISO(nominationEnd),
+        voting_start:     nptToISO(votingStart),
+        voting_end:       nptToISO(votingEnd),
         positions: validPositions,
       });
       toast.success("Election created");
@@ -241,7 +243,7 @@ export default function AdminElectionsPage() {
           <Textarea label="Description" name="desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Optional description..." />
 
           <div>
-            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Nomination Period</div>
+            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Nomination Period <span className="normal-case font-normal text-text-3">(Nepal Time)</span></div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Start" name="nom-start" type="datetime-local" value={nominationStart} onChange={(e) => setNominationStart(e.target.value)} required />
               <Input label="End"   name="nom-end"   type="datetime-local" value={nominationEnd}   onChange={(e) => setNominationEnd(e.target.value)}   required />
@@ -249,7 +251,7 @@ export default function AdminElectionsPage() {
           </div>
 
           <div>
-            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Voting Period</div>
+            <div className="text-[11px] font-[var(--font-display)] font-bold tracking-wider uppercase text-text-2 mb-2">Voting Period <span className="normal-case font-normal text-text-3">(Nepal Time)</span></div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Start" name="vote-start" type="datetime-local" value={votingStart} onChange={(e) => setVotingStart(e.target.value)} required />
               <Input label="End"   name="vote-end"   type="datetime-local" value={votingEnd}   onChange={(e) => setVotingEnd(e.target.value)}   required />

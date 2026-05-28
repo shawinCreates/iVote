@@ -8,18 +8,23 @@ from app.db.models import User, UserRole
 from app.services.audit_notification_service import _audit, _notify
 from app.core.config import BASE_DIR
 
+
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
+
 
 def get_user_by_tu(db: Session, tu: str) -> Optional[User]:
     return db.query(User).filter(User.tu_registration_number == tu).first()
 
+
 def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
-def create_student(db: Session, email: str, full_name: str, tu: str,
-                   faculty: str, year: int, password: str,
-                   id_card_path: str) -> User:
+
+def create_student(
+    db: Session, email: str, full_name: str, tu: str,
+    faculty: str, year: int, password: str, id_card_path: str,
+) -> User:
     user = User(
         email=email, full_name=full_name, tu_registration_number=tu,
         faculty=faculty, year=year,
@@ -32,23 +37,35 @@ def create_student(db: Session, email: str, full_name: str, tu: str,
     db.refresh(user)
     return user
 
+
 def get_pending_students(db: Session) -> List[User]:
-    return (db.query(User)
-            .filter(User.is_verified == False,
-                    User.is_active == True,
-                    User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]))
-            .order_by(User.created_at)
-            .all())
+    return (
+        db.query(User)
+        .filter(
+            User.is_verified == False,
+            User.is_active == True,
+            User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
+        )
+        .order_by(User.created_at)
+        .all()
+    )
+
 
 def get_all_students(db: Session) -> List[User]:
-    return (db.query(User)
-            .filter(User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
-                    User.is_active == True)
-            .order_by(User.created_at)
-            .all())
+    return (
+        db.query(User)
+        .filter(
+            User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
+            User.is_active == True,
+        )
+        .order_by(User.created_at)
+        .all()
+    )
 
-def verify_student(db: Session, user_id: int, admin_id: int,
-                   ip: str = None) -> Optional[User]:
+
+def verify_student(
+    db: Session, user_id: int, admin_id: int, ip: str = None
+) -> Optional[User]:
     user = get_user(db, user_id)
     if not user:
         return None
@@ -66,12 +83,15 @@ def verify_student(db: Session, user_id: int, admin_id: int,
         raise
     return user
 
-def reject_student(db: Session, user_id: int, admin_id: int,
-                   reason: str = None, ip: str = None) -> bool:
+
+def reject_student(
+    db: Session, user_id: int, admin_id: int,
+    reason: str = None, ip: str = None,
+) -> bool:
     user = get_user(db, user_id)
     if not user:
         return False
-    user.is_active = False
+    user.is_active        = False
     user.rejection_reason = reason or "Registration not approved."
     _audit(db, "STUDENT_REJECTED", admin_id, actor_role="admin",
            details=f"Rejected user ID {user_id}", ip=ip) 

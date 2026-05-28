@@ -1,13 +1,13 @@
 from __future__ import annotations
 import base64
 import re
-import shutil
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -26,8 +26,8 @@ from app.core.email_service import generate_reset_token, reset_token_expiry, sen
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 _login_attempts: dict[str, list[float]] = defaultdict(list)
-_MAX_ATTEMPTS = 5       # max failures per window
-_WINDOW_SEC   = 300       # 5-minute window
+_MAX_ATTEMPTS = 5
+_WINDOW_SEC   = 300
 
 _PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
 _SAFE_TU_RE  = re.compile(r'^\d{1,2}-\d{1,2}-\d{3,6}-\d{2,4}-\d{4}$')

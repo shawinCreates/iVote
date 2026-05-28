@@ -1,4 +1,8 @@
-import { formatDistanceToNow, format, parseISO, differenceInSeconds, isValid } from "date-fns";
+import { formatDistanceToNow, parseISO, differenceInSeconds, isValid } from "date-fns";
+
+// Nepal Standard Time — UTC+5:45 (Asia/Kathmandu)
+const NPT = "Asia/Kathmandu";
+const NPT_OFFSET = "+05:45";
 
 function parseDate(iso: string | Date | undefined | null): Date | null {
   if (!iso) return null;
@@ -10,17 +14,36 @@ function parseDate(iso: string | Date | undefined | null): Date | null {
   }
 }
 
-export const fmtDate = (iso?: string | Date | null) => {
+/** Format using Intl in Nepal timezone. */
+function _nptFmt(d: Date, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: NPT, ...opts }).format(d);
+}
+
+// ── Public display formatters ─────────────────────────────────────────────────
+
+/** "26 May 2026" */
+export const fmtDate = (iso?: string | Date | null): string => {
   const d = parseDate(iso ?? null);
-  return d ? format(d, "d MMM yyyy") : "—";
+  if (!d) return "—";
+  return _nptFmt(d, { day: "numeric", month: "short", year: "numeric" });
 };
 
-export const fmtDateTime = (iso?: string | Date | null) => {
+/** "26 May 2026, 6:38 PM NPT" */
+export const fmtDateTime = (iso?: string | Date | null): string => {
   const d = parseDate(iso ?? null);
-  return d ? format(d, "d MMM yyyy, HH:mm") : "—";
+  if (!d) return "—";
+  const datePart = _nptFmt(d, { day: "numeric", month: "short", year: "numeric" });
+  const timePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: NPT,
+    hour:   "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+  return `${datePart}, ${timePart} NPT`;
 };
 
-export const fmtRelative = (iso?: string | Date | null) => {
+/** "2 hours ago", "in 3 days" — relative to now (no TZ conversion needed) */
+export const fmtRelative = (iso?: string | Date | null): string => {
   const d = parseDate(iso ?? null);
   if (!d) return "—";
   try {
@@ -30,21 +53,62 @@ export const fmtRelative = (iso?: string | Date | null) => {
   }
 };
 
-export const timeRemaining = (endIso?: string | Date | null) => {
+/** Countdown string — pure time difference, no TZ conversion needed */
+export const timeRemaining = (endIso?: string | Date | null): string => {
   const d = parseDate(endIso ?? null);
   if (!d) return "Unknown";
   const totalSecs = differenceInSeconds(d, new Date());
   if (totalSecs <= 0) return "Ended";
-  const days = Math.floor(totalSecs / 86400);
-  const hours = Math.floor((totalSecs % 86400) / 3600);
+  const days    = Math.floor(totalSecs / 86400);
+  const hours   = Math.floor((totalSecs % 86400) / 3600);
   const minutes = Math.floor((totalSecs % 3600) / 60);
-  const secs = totalSecs % 60;
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  const secs    = totalSecs % 60;
+  if (days > 0)  return `${days}d ${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
   return `${minutes}m ${secs}s`;
 };
 
-export const initials = (name?: string) => {
+// ── NPT ↔ datetime-local conversions (for <input type="datetime-local">) ──────
+
+/**
+ * Convert a datetime-local string the admin typed (treated as Nepal Time)
+ * into a UTC ISO-8601 string ready for the API.
+ *
+ * Example: "2026-06-01T09:00" (NPT)  →  "2026-06-01T03:15:00.000Z" (UTC)
+ */
+export function nptToISO(localValue: string): string {
+  if (!localValue) return "";
+  // Appending "+05:45" makes the browser parse it as NPT and gives correct UTC
+  return new Date(localValue + NPT_OFFSET).toISOString();
+}
+
+/**
+ * Convert a UTC ISO string back to datetime-local format in Nepal Time,
+ * so inputs are pre-filled correctly when editing an election.
+ *
+ * Example: "2026-06-01T03:15:00Z" (UTC)  →  "2026-06-01T09:00" (NPT)
+ */
+export function isoToNPTLocal(iso: string): string {
+  const d = parseDate(iso);
+  if (!d) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: NPT,
+    year:   "numeric",
+    month:  "2-digit",
+    day:    "2-digit",
+    hour:   "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  // Some environments emit "24" for midnight — normalise to "00"
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+}
+
+// ── Misc helpers ──────────────────────────────────────────────────────────────
+
+export const initials = (name?: string): string => {
   if (!name?.trim()) return "??";
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 };
@@ -88,7 +152,7 @@ export const passwordStrength = (password: string) => {
 };
 
 export const fmtNumber = (n?: number | null) =>
-  n == null ? "—" : Number(n).toLocaleString();
+  n == null ? "-" : Number(n).toLocaleString();
 
 export const fmtPercent = (n?: number | null, decimals = 1) =>
-  n == null ? "—" : `${Number(n).toFixed(decimals)}%`;
+  n == null ? "-" : `${Number(n).toFixed(decimals)}%`;

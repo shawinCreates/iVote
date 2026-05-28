@@ -13,6 +13,13 @@ from app.core.middleware import (
     RateLimitMiddleware
 )
 
+from app.db.database import engine, Base, get_db
+from app.services.schedular_service import start
+from app.core.middleware import (
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+)
 from app.routers import auth, elections, results, users, voting
 from app.routers.candidates import student_router, admin_router
 
@@ -60,12 +67,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[WARNING] Scheduler failed to start: {e}")
     yield
-    # Shutdown (add cleanup here if needed)
 
 
 app = FastAPI(
-    title="iVote API",
-    description="Backend service for iVote application",
+    title="Secure Online Voting System API",
+    description="Secure online voting system with homomorphic encryption",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -94,3 +100,34 @@ app.include_router(elections.router)
 app.include_router(results.router)
 app.include_router(users.router)
 app.include_router(voting.router)
+
+
+@app.get("/", tags=["Root"], include_in_schema=False)
+async def root():
+    return {
+        "service": "Secure Online Voting System API",
+        "version": "1.0.0",
+        "status":  "running",
+        "docs":    "/docs",
+        "health":  "/health",
+    }
+
+
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
+async def health(db: Session = Depends(get_db)):
+    """Liveness + readiness probe used by Render and Railway."""
+    db_status = "connected"
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "disconnected"
+
+    healthy = db_status == "connected"
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status":    "healthy" if healthy else "unhealthy",
+            "database":  db_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )

@@ -11,10 +11,35 @@ from app.schemas.schemas import CandidateOut, RejectReasonIn
 from app.services.candidate_service import apply_candidacy, approve_candidate, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views, reject_candidate
 from app.services.auth_services import get_user_profile_photo_path
 from app.utils.dependencies import require_admin, require_verified
-from app.core.config import _ALLOWED_PHOTO_TYPES, _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR
+from app.core.config import _ALLOWED_PHOTO_TYPES, _MAX_PHOTO_BYTES
+from app.core.cloudinary_storage import upload_to_cloudinary
 
-student_router = APIRouter(prefix ="/api", tags=["Candidates"])
-admin_router = APIRouter(prefix ="/api/admin", tags=["Candidates - Admin"])
+student_router = APIRouter(prefix="/api",       tags=["Candidates"])
+admin_router   = APIRouter(prefix="/api/admin", tags=["Candidates - Admin"])
+
+
+# ── Student-facing ─────────────────────────────────────────────────────────────
+
+@student_router.get("/candidates/{candidate_id}/photo")
+async def candidate_profile_photo(
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_verified),
+):
+    c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not c:
+        raise HTTPException(404, detail="Candidate not found")
+
+    # Prefer campaign photo, fall back to profile photo
+    if c.photo_path:
+        return RedirectResponse(c.photo_path)
+
+    owner = db.query(User).filter(User.id == c.user_id).first()
+    if owner and owner.profile_photo_path:
+        return RedirectResponse(str(owner.profile_photo_path))
+
+    raise HTTPException(404, detail="Photo not found")
+
 
 # Student-facing
 @student_router.get("/candidates/{candidate_id}/photo")
@@ -46,6 +71,7 @@ async def candidates_for_position(
 ):
     return get_approved_candidates(db, position_id)
 
+
 @student_router.get("/candidates/{candidate_id}", response_model=CandidateOut)
 async def get_candidate(
     candidate_id: int,
@@ -57,6 +83,7 @@ async def get_candidate(
         raise HTTPException(404, detail="Candidate not found")
     increment_views(db, candidate_id)
     return c
+
 
 @student_router.get("/my-candidacy", response_model=List[CandidateOut])
 async def my_candidacy(
@@ -122,7 +149,7 @@ async def apply(
     if user.role == UserRole.ELECTION_HEAD:
         raise HTTPException(403, detail="Admin cannot apply for candidacy")
 
-    if len(manifesto.strip()) == 0:
+    if not manifesto.strip():
         raise HTTPException(400, detail="Manifesto cannot be empty")
     if len(manifesto) > 5000:
         raise HTTPException(400, detail="Manifesto must be 5000 characters or fewer")
@@ -134,10 +161,8 @@ async def apply(
     if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="Profile photo must be smaller than 5 MB")
 
-    ext  = _EXT_MAP[photo.content_type]
-    dest = CANDIDATE_PHOTO_DIR / f"cand_{user.id}_{position_id}{ext}"
-    with dest.open("wb") as f:
-        f.write(content)
+    public_id = f"cand_{user.id}_{position_id}"
+    photo_url = upload_to_cloudinary(content, public_id=public_id, folder="ovs/candidates_photo")
 
     relative = f"uploads/candidates_photo/cand_{user.id}_{position_id}{ext}"
     try:
@@ -154,6 +179,7 @@ async def pending_candidates(
     admin: User = Depends(require_admin),
 ):
     return get_pending_candidates(db, election_id)
+
 
 @admin_router.get("/candidates/all", response_model=List[CandidateOut])
 async def all_candidates(

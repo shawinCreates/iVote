@@ -13,6 +13,7 @@ from app.core.config import BASE_DIR
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
+
 @router.get("/students/pending", response_model=List[UserOut])
 async def pending_students(
     db: Session = Depends(get_db),
@@ -20,12 +21,14 @@ async def pending_students(
 ):
     return get_pending_students(db)
 
+
 @router.get("/students/all", response_model=List[UserOut])
 async def all_students(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     return get_all_students(db)
+
 
 @router.post("/students/{user_id}/verify")
 async def verify_student_endpoint(
@@ -38,6 +41,7 @@ async def verify_student_endpoint(
     if not user:
         raise HTTPException(404, detail="Student not found")
     return {"message": "Student verified successfully"}
+
 
 @router.post("/students/{user_id}/reject")
 async def reject_student_endpoint(
