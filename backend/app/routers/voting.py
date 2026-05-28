@@ -1,4 +1,4 @@
-from __future__ import annotations
+import os as _os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -27,7 +27,18 @@ async def face_verify(
             detail="No profile photo on file. Please contact the Election Head.",
         )
 
-    profile_source = str(user.profile_photo_path)
+    # Resolve path — works for both local relative paths and Cloudinary URLs
+    profile_path = str(user.profile_photo_path)
+    if not profile_path.startswith("http"):
+        # Local path — resolve relative to backend root
+        from app.core.config import BASE_DIR
+        profile_path = str(BASE_DIR / profile_path)
+
+    if not _os.path.isfile(profile_path):
+        raise HTTPException(
+            status_code=500,
+            detail="Profile photo could not be found on the server. Contact support.",
+        )
 
     try:
         # ── Step 1: liveness check ──────────────────────────────────────────
@@ -48,13 +59,13 @@ async def face_verify(
                 )
 
         # ── Step 2: face match ──────────────────────────────────────────────
-        result = verify_face(profile_source, payload.live_image_b64)
-
+        result = verify_face(profile_path, payload.live_image_b64)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    # Audit the attempt
     _audit(
         db, "FACE_VERIFY_ATTEMPT", user.id,
         actor_role="student",

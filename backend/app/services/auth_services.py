@@ -1,11 +1,12 @@
 from __future__ import annotations
 from typing import List, Optional
-
+from fastapi import Path
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.db.models import User, UserRole
 from app.services.audit_notification_service import _audit, _notify
+from app.core.config import BASE_DIR
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -93,22 +94,29 @@ def reject_student(
     user.is_active        = False
     user.rejection_reason = reason or "Registration not approved."
     _audit(db, "STUDENT_REJECTED", admin_id, actor_role="admin",
-           details=f"Rejected user ID {user_id}", ip=ip)
+           details=f"Rejected user ID {user_id}", ip=ip) 
     db.commit()
     return True
 
-
-def get_user_id_card_path(db: Session, user_id: int) -> Optional[str]:
-    """Returns the Cloudinary URL of the user's ID card, or None."""
+def get_user_id_card_path(db: Session, user_id: int) -> Path | None:
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.id_card_path:
         return None
-    return str(user.id_card_path)
+
+    path = BASE_DIR / user.id_card_path
+    if not path.exists():
+        return None
+
+    return path
 
 
-def get_user_profile_photo_path(db: Session, user_id: int) -> Optional[str]:
-    """Returns the Cloudinary URL of the user's profile photo, or None."""
+def get_user_profile_photo_path(db: Session, user_id: int) -> Path | None:
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.profile_photo_path:
         return None
-    return str(user.profile_photo_path)
+
+    path = BASE_DIR / user.profile_photo_path
+    if not path.exists():
+        return None
+
+    return path

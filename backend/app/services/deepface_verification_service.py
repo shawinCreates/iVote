@@ -53,23 +53,14 @@ def _b64_to_temp_file(b64_string: str, suffix: str = ".jpg") -> str:
 # Public API                                                          #
 # ------------------------------------------------------------------ #
 
-def _url_to_temp_file(url: str, suffix: str = ".jpg") -> str:
-    """Download a remote URL to a temp file and return its path."""
-    import urllib.request
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp.close()
-    urllib.request.urlretrieve(url, tmp.name)
-    return tmp.name
-
-
-def verify_face(profile_source: str, live_b64: str) -> dict:
+def verify_face(profile_photo_path: str, live_b64: str) -> dict:
     """
     Compare the stored profile photo against a live webcam capture.
 
     Parameters
     ----------
-    profile_source : str
-        Cloudinary URL or local filesystem path to the registered profile photo.
+    profile_photo_path : str
+        Filesystem path to the user's registered profile photo.
 
     live_b64 : str
         Base64-encoded JPEG/PNG of the webcam snapshot taken during voting.
@@ -84,16 +75,10 @@ def verify_face(profile_source: str, live_b64: str) -> dict:
     """
     from deepface import DeepFace  # lazy import — heavy module, load once per request
 
-    profile_path = None
-    downloaded   = False
-
-    if profile_source.startswith("http://") or profile_source.startswith("https://"):
-        profile_path = _url_to_temp_file(profile_source)
-        downloaded   = True
-    elif os.path.isfile(profile_source):
-        profile_path = profile_source
-    else:
-        raise FileNotFoundError(f"Profile photo not found: {profile_source}")
+    if not os.path.isfile(profile_photo_path):
+        raise FileNotFoundError(
+            f"Profile photo not found on disk: {profile_photo_path}"
+        )
 
     live_path = None
     try:
@@ -101,7 +86,7 @@ def verify_face(profile_source: str, live_b64: str) -> dict:
         live_path = _b64_to_temp_file(live_b64)
 
         result = DeepFace.verify(
-            img1_path   = profile_path,
+            img1_path   = profile_photo_path,
             img2_path   = live_path,
             model_name  = MODEL_NAME,
             detector_backend = DETECTOR,
@@ -127,7 +112,6 @@ def verify_face(profile_source: str, live_b64: str) -> dict:
         }
 
     finally:
+        # Always clean up the temp file
         if live_path and os.path.exists(live_path):
             os.unlink(live_path)
-        if downloaded and profile_path and os.path.exists(profile_path):
-            os.unlink(profile_path)

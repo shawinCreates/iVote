@@ -1,20 +1,23 @@
 """
 Face verification and liveness detection using facenet-pytorch.
-
 Stack:
   • facenet-pytorch  – InceptionResnetV1 + MTCNN face detector
+                       Downloads ~100 MB of weights automatically on first use
+                       into torch's default cache (~/.cache/torch/checkpoints/)
   • torch / torchvision
   • Pillow, numpy
 
-Model weights (~100 MB) are downloaded once to torch's cache on first use.
+Install (all standard, no cmake):
+  pip install facenet-pytorch torch torchvision pillow numpy
+
+First-run: weights download automatically (~100 MB, one time).
+Every subsequent call uses the cache — no internet needed.
 """
 from __future__ import annotations
 
 import base64
 import logging
 import os
-import tempfile
-import urllib.request
 from io import BytesIO
 
 import numpy as np
@@ -26,18 +29,21 @@ log = logging.getLogger(__name__)
 # Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 
-THRESHOLD   = float(os.getenv("FACE_VERIFY_THRESHOLD", "0.70"))
+# Cosine similarity threshold (0–1, higher = stricter match required).
+# 0.70 is a good starting point for webcam-quality photos.
+# Raise to 0.75 if impostors are getting through.
+# Lower to 0.65 if genuine users are being rejected too often.
+THRESHOLD = float(os.getenv("FACE_VERIFY_THRESHOLD", "0.70"))
+
 MAX_RETRIES = 3
 
-EAR_DROP_THRESHOLD = float(os.getenv("LIVENESS_EAR_DROP", "0.018"))
-EAR_VAR_THRESHOLD  = float(os.getenv("LIVENESS_EAR_VAR",  "0.00008"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lazy singletons  (loaded once per process, reused across requests)
 # ─────────────────────────────────────────────────────────────────────────────
 
-_mtcnn  = None
-_resnet = None
+_mtcnn  = None   # face detector
+_resnet = None   # embedding model
 _device = None
 
 
@@ -51,43 +57,31 @@ def _get_models():
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         log.info("Loading face models on %s (first call downloads weights ~100 MB)...", _device)
 
+        # MTCNN: detects + crops + aligns faces to 160x160 RGB tensor
         _mtcnn = MTCNN(
-            image_size    = 160,
-            margin        = 20,
-            min_face_size = 40,
-            keep_all      = False,
-            post_process  = True,
-            device        = _device,
+            image_size      = 160,
+            margin          = 20,
+            min_face_size   = 40,
+            keep_all        = False,
+            post_process    = True,
+            device          = _device,
         )
+
+        # InceptionResnetV1 pre-trained on VGGFace2 -> 512-d embeddings
         _resnet = InceptionResnetV1(pretrained="vggface2").eval().to(_device)
+
         log.info("Face models ready.")
 
     return _mtcnn, _resnet, _device
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Image loading — handles Cloudinary URLs, local paths, and base64 data-URIs
+# Image loading
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load_pic(source: str) -> Image.Image:
-    # Local file
     if os.path.isfile(source):
         return Image.open(source).convert("RGB")
-
-    # Remote URL (Cloudinary or any HTTPS)
-    if source.startswith("http://") or source.startswith("https://"):
-        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-            tmp_path = tmp.name
-        try:
-            urllib.request.urlretrieve(source, tmp_path)
-            return Image.open(tmp_path).convert("RGB")
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-    # Base64 data-URI or raw base64
     b64 = source
     if "," in b64:
         b64 = b64.split(",", 1)[1]
@@ -95,7 +89,7 @@ def _load_pic(source: str) -> Image.Image:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Embedding helpers
+# Core pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_embedding(pil_image: Image.Image, label: str) -> np.ndarray:
@@ -122,13 +116,12 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def verify_face(profile_source: str, live_b64: str) -> dict:
-    """
-    Compare a stored profile photo (Cloudinary URL or local path) against
-    a live base64 frame captured during voting.
-    """
+def verify_face(profile_photo_path: str, live_b64: str) -> dict:
+    if not os.path.isfile(profile_photo_path):
+        raise FileNotFoundError(f"Profile photo not found on disk: {profile_photo_path}")
+
     try:
-        profile_img = _load_pic(profile_source)
+        profile_img = _load_pic(profile_photo_path)
         live_img    = _load_pic(live_b64)
         profile_emb = _get_embedding(profile_img, "profile")
         live_emb    = _get_embedding(live_img,    "live")
@@ -151,12 +144,28 @@ def verify_face(profile_source: str, live_b64: str) -> dict:
 # Liveness detection — blink via Eye Aspect Ratio (EAR)
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# MTCNN landmark order: [left_eye, right_eye, nose, mouth_left, mouth_right]
-# A genuine blink causes a measurable drop in eye-openness score across frames.
+# MTCNN returns 5 facial landmarks per face:
+#   [0] left_eye, [1] right_eye, [2] nose, [3] mouth_left, [4] mouth_right
+#
+# We approximate EAR using the vertical spread of both eye landmarks across
+# frames. A real blink causes a sharp drop in EAR (eyes close) followed by
+# a recovery. A printed photo or screen shows near-zero variance.
+#
+# EAR_DROP_THRESHOLD : minimum drop considered a blink event
+# EAR_VAR_THRESHOLD  : minimum variance across frames to pass (catches static images)
+
+EAR_DROP_THRESHOLD = float(os.getenv("LIVENESS_EAR_DROP", "0.018"))
+EAR_VAR_THRESHOLD  = float(os.getenv("LIVENESS_EAR_VAR",  "0.00008"))
+
 
 def _eye_openness(landmarks: np.ndarray) -> float:
-    """Rough eye-openness from MTCNN landmarks, normalised by eye-width."""
-    left_eye  = landmarks[0]
+    """
+    Rough eye-openness score from MTCNN landmarks.
+    landmarks shape: (5, 2) — [left_eye, right_eye, nose, mouth_l, mouth_r]
+    We use the vertical distance between each eye and the nose tip,
+    normalised by the eye-to-eye horizontal distance.
+    """
+    left_eye  = landmarks[0]   # (x, y)
     right_eye = landmarks[1]
     nose      = landmarks[2]
 
@@ -170,8 +179,12 @@ def check_liveness(frames_b64: list[str]) -> dict:
     """
     Analyse a sequence of base64 frames for blink-based liveness.
 
-    Returns:
-        dict with keys: live (bool), reason (str), ear_values (list)
+    Returns
+    -------
+    dict:
+        live       (bool)  – True if a blink was detected
+        reason     (str)   – "ok" | "no_blink" | "no_face_in_frames"
+        ear_values (list)  – per-frame EAR scores (for debugging)
     """
     if not frames_b64:
         return {"live": False, "reason": "no_frames", "ear_values": []}
@@ -187,24 +200,28 @@ def check_liveness(frames_b64: list[str]) -> dict:
         except Exception:
             continue
 
+        # detect_landmarks=True returns (boxes, probs, landmarks)
         _, probs, landmarks = mtcnn.detect(img, landmarks=True)
+
         if landmarks is None or len(landmarks) == 0:
             continue
 
+        # Pick the highest-confidence face
         best = int(np.argmax(probs))
-        lm   = landmarks[best]
+        lm   = landmarks[best]   # shape (5, 2)
         face_found = True
         ear_values.append(_eye_openness(np.array(lm)))
 
     if not face_found or len(ear_values) < 3:
         return {"live": False, "reason": "no_face_in_frames", "ear_values": ear_values}
 
-    ear_arr  = np.array(ear_values)
+    ear_arr = np.array(ear_values)
     variance = float(np.var(ear_arr))
     min_ear  = float(np.min(ear_arr))
     max_ear  = float(np.max(ear_arr))
     drop     = max_ear - min_ear
 
+    # Pass if variance is high enough OR there's a clear drop-and-recover
     live = (variance >= EAR_VAR_THRESHOLD) or (drop >= EAR_DROP_THRESHOLD)
 
     return {

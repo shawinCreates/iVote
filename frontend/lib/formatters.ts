@@ -113,46 +113,46 @@ export const initials = (name?: string): string => {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 };
 
-export const photoUrl = (path?: string | null): string | null => {
+export const photoUrl = (path?: string | null) => {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return "/" + path.replace(/^\/+/, "");
 };
 
 const ELECTION_STATUS_LABELS: Record<string, string> = {
-  draft:             "Draft",
-  nomination_open:   "Nominations Open",
+  draft: "Draft",
+  nomination_open: "Nominations Open",
   nomination_closed: "Nominations Closed",
-  voting_open:       "Voting Open",
-  closed:            "Closed",
+  voting_open: "Voting Open",
+  closed: "Closed",
   results_published: "Results Published",
 };
 
-export const electionStatusLabel = (status?: string): string =>
+export const electionStatusLabel = (status?: string) =>
   ELECTION_STATUS_LABELS[status ?? ""] ?? status ?? "—";
 
 const STRENGTH_LEVELS = [
-  { label: "",          color: "text-muted"      },
-  { label: "Very Weak", color: "text-danger"      },
-  { label: "Weak",      color: "text-orange-500"  },
-  { label: "Fair",      color: "text-warning"     },
-  { label: "Good",      color: "text-cyan"        },
-  { label: "Strong ✓", color: "text-success"     },
+  { label: "", color: "text-muted" },
+  { label: "Very Weak", color: "text-danger" },
+  { label: "Weak", color: "text-orange-500" },
+  { label: "Fair", color: "text-warning" },
+  { label: "Good", color: "text-cyan" },
+  { label: "Strong ✓", color: "text-success" },
 ];
 
 export const passwordStrength = (password: string) => {
   if (!password) return { score: 0, ...STRENGTH_LEVELS[0] };
   let score = 0;
-  if (password.length >= 8)          score++;
-  if (password.length >= 12)         score++;
-  if (/[A-Z]/.test(password))        score++;
-  if (/[0-9]/.test(password))        score++;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
   return { score, ...STRENGTH_LEVELS[score] };
 };
 
-export const fmtNumber  = (n?: number | null): string =>
-  n == null ? "—" : Number(n).toLocaleString();
+export const fmtNumber = (n?: number | null) =>
+  n == null ? "-" : Number(n).toLocaleString();
 
-export const fmtPercent = (n?: number | null, decimals = 1): string =>
-  n == null ? "—" : `${Number(n).toFixed(decimals)}%`;
+export const fmtPercent = (n?: number | null, decimals = 1) =>
+  n == null ? "-" : `${Number(n).toFixed(decimals)}%`;

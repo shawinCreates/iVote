@@ -1,14 +1,15 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import RejectReasonIn, UserOut
-from app.services.auth_services import get_all_students, get_pending_students, reject_student, verify_student
+from app.services.auth_services import get_all_students, get_pending_students, get_user_id_card_path, get_user_profile_photo_path, get_user_profile_photo_path, reject_student, verify_student
 from app.utils.dependencies import require_admin
+from app.core.config import BASE_DIR
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -55,17 +56,17 @@ async def reject_student_endpoint(
         raise HTTPException(404, detail="Student not found")
     return {"message": "Student rejected. They may re-register with corrected information."}
 
-
 @router.get("/students/{user_id}/id-card")
 async def view_id_card(
     user_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.id_card_path:
+    path = get_user_id_card_path(db, user_id)
+    if not path:
         raise HTTPException(404, detail="ID card not found")
-    return RedirectResponse(str(user.id_card_path))
+
+    return FileResponse(str(path))
 
 
 @router.get("/students/{user_id}/profile-photo")
@@ -74,7 +75,8 @@ async def view_profile_photo(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.profile_photo_path:
+    path = get_user_profile_photo_path(db, user_id)
+    if not path:
         raise HTTPException(404, detail="Profile photo not found")
-    return RedirectResponse(str(user.profile_photo_path))
+
+    return FileResponse(str(path))
