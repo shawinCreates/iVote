@@ -128,8 +128,10 @@ async def apply(
     if len(manifesto) > 5000:
         raise HTTPException(400, detail="Manifesto must be 5000 characters or fewer")
 
+    if not photo.content_type or not photo.content_type.startswith("image/"):
+        raise HTTPException(400, detail="Only image files are allowed for the candidate photo")
     if photo.content_type not in _ALLOWED_PHOTO_TYPES:
-        raise HTTPException(400, detail="Profile photo must be JPG or PNG")
+        raise HTTPException(400, detail="Candidate photo must be a JPEG, PNG, or WebP image")
 
     content = await photo.read()
     if len(content) > _MAX_PHOTO_BYTES:

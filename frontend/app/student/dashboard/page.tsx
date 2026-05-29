@@ -87,7 +87,7 @@ export default function StudentDashboardPage() {
                 <h2 className="font-[var(--font-display)] text-lg font-bold text-white">{votingElection.name}</h2>
                 <div className="text-xs text-text-3 mt-1 flex items-center gap-1">
                   <FiClock size={10} />
-                  {fmtDateTime(votingElection.voting_start)} — {fmtDateTime(votingElection.voting_end)}
+                  {fmtDateTime(votingElection.voting_start)} - {fmtDateTime(votingElection.voting_end)}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -106,11 +106,11 @@ export default function StudentDashboardPage() {
         const myApp = candidacies.find((c: any) => c.election_id === e.id);
         const statusText = myApp
           ? myApp.approval_status === "approved"
-            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved — you're on the ballot.`
+            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved - you're on the ballot.`
             : myApp.approval_status === "pending"
             ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
             : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
-          : "Nominations are open — you can apply for candidacy.";
+          : "Nominations are open - you can apply for candidacy.";
 
         return (
           <Card key={e.id} glow="cyan">
@@ -194,8 +194,12 @@ export default function StudentDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-white">{e.name}</div>
                       <div className="text-xs text-text-3 flex items-center gap-1 mt-0.5">
-                        <FiClock size={10} />
-                        {fmtDateTime(e.voting_start)} — {fmtDateTime(e.voting_end)}
+                        <FiClock size={10} /> Nominations:
+                        {fmtDateTime(e.nomination_start)} - {fmtDateTime(e.nomination_end)}
+                      </div>
+                      <div className="text-xs text-text-3 flex items-center gap-1 mt-0.5">
+                        <FiClock size={10} /> Voting:
+                        {fmtDateTime(e.voting_start)} - {fmtDateTime(e.voting_end)}
                       </div>
                     </div>
                     <Badge status={e.status} />

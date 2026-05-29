@@ -209,15 +209,39 @@ export function FileUpload({ label, accept, maxSize, onFile, preview = false, hi
   const [dragging, setDragging] = useState(false);
   const [selected, setSelected] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isTypeAccepted = (file: File): boolean => {
+    if (!accept) return true;
+    return accept.split(",").map((s) => s.trim()).some((pattern) => {
+      if (pattern === "image/*") return file.type.startsWith("image/");
+      if (pattern.endsWith("/*")) return file.type.startsWith(pattern.slice(0, -2));
+      return file.type === pattern;
+    });
+  };
 
   const handleFile = (file: File | null) => {
     if (!file) return;
-    if (maxSize && file.size > maxSize) { alert(`File too large. Max ${Math.round(maxSize / 1024 / 1024)}MB.`); return; }
+    setLocalError(null);
+    if (!isTypeAccepted(file)) {
+      setLocalError(
+        accept === "image/*"
+          ? "Only image files are allowed (JPEG, PNG, WebP)."
+          : `File type not allowed. Please upload: ${accept}`
+      );
+      return;
+    }
+    if (maxSize && file.size > maxSize) {
+      setLocalError(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)} MB.`);
+      return;
+    }
     setSelected(file);
     onFile?.(file);
     if (preview && file.type.startsWith("image/")) setPreviewUrl(URL.createObjectURL(file));
   };
+
+  const displayError = error || localError;
 
   return (
     <div>
@@ -229,7 +253,7 @@ export function FileUpload({ label, accept, maxSize, onFile, preview = false, hi
         onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
         className={`border-2 border-dashed rounded-[var(--radius-lg)] p-7 text-center cursor-pointer transition-all
           ${dragging ? "border-cyan bg-cyan-dim shadow-[0_0_20px_var(--color-cyan-glow)]" : "border-border bg-surface-2"}
-          ${error ? "border-danger" : ""}`}
+          ${displayError ? "border-danger" : ""}`}
       >
         <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
         {previewUrl ? (
@@ -238,18 +262,21 @@ export function FileUpload({ label, accept, maxSize, onFile, preview = false, hi
           <>
             <FiUpload size={28} className={`mx-auto mb-2.5 ${dragging ? "text-cyan" : "text-text-3"}`} />
             <div className="text-sm text-text-2 mb-1">{selected ? selected.name : "Drag & drop or click to upload"}</div>
-            <div className="text-[11px] text-text-3">{accept} {maxSize ? `· Max ${Math.round(maxSize / 1024 / 1024)}MB` : ""}</div>
+            <div className="text-[11px] text-text-3">
+              {accept === "image/*" ? "JPEG, PNG, WebP" : accept}
+              {maxSize ? ` · Max ${Math.round(maxSize / 1024 / 1024)} MB` : ""}
+            </div>
           </>
         )}
       </div>
       {selected && !previewUrl && (
         <div className="flex items-center gap-2 mt-2 text-xs text-text-2">
           <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{selected.name}</span>
-          <button type="button" onClick={() => { setSelected(null); onFile?.(null); }} className="text-danger bg-transparent border-none cursor-pointer"><FiX size={14} /></button>
+          <button type="button" onClick={() => { setSelected(null); setLocalError(null); onFile?.(null); }} className="text-danger bg-transparent border-none cursor-pointer"><FiX size={14} /></button>
         </div>
       )}
-      {error && <div className="text-xs text-danger mt-1">{error}</div>}
-      {hint && !error && <div className="text-xs text-text-3 mt-1">{hint}</div>}
+      {displayError && <div className="text-xs text-danger mt-1">{displayError}</div>}
+      {hint && !displayError && <div className="text-xs text-text-3 mt-1">{hint}</div>}
     </div>
   );
 }

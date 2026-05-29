@@ -239,6 +239,10 @@ export default function RegisterPage() {
 
   const handleStage1 = async () => {
     if (!acceptedTerms) { setError("Please accept the Terms and Conditions to continue."); return; }
+    if (!regNumber.trim()) { setError("Please enter your TU registration number."); return; }
+    if (!email.trim()) { setError("Please enter your email address."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("Please enter a valid email address."); return; }
+    if (!password) { setError("Please enter a password."); return; }
     setError(""); setLoading(true);
     try {
       const res = await registerStage1(regNumber, email, password);
@@ -250,6 +254,7 @@ export default function RegisterPage() {
 
   const handleStage2 = async () => {
     if (!fullName.trim()) { setError("Please enter your full name."); return; }
+    if (/\d/.test(fullName)) { setError("Full name cannot contain numbers."); return; }
     if (!faculty) { setError("Please select your faculty."); return; }
     if (!program) { setError("Please select your program."); return; }
     if (!year) { setError("Please select your year."); return; }
@@ -494,11 +499,11 @@ export default function RegisterPage() {
                 </div>
                 <FileUpload
                   label="University ID Card"
-                  accept="image/*,.pdf"
+                  accept="image/*"
                   maxSize={5 * 1024 * 1024}
                   onFile={setIdCardFile}
                   preview
-                  hint="JPEG, PNG, or PDF · Max 5 MB"
+                  hint="JPEG, PNG, or WebP · Max 5 MB"
                 />
                 <div className="flex gap-2">
                   <Button variant="ghost" onClick={() => setStep(1)} className="flex-1">Back</Button>

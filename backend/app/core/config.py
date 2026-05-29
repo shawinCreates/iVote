@@ -30,7 +30,7 @@ if not CLOUDINARY_ENABLED:
         "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file."
     )
 
-_ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/jpg"}
+_ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
 _MAX_PHOTO_BYTES     = 5 * 1024 * 1024   # 5 MB
 
 _EXT_MAP = {

@@ -30,9 +30,9 @@ _login_attempts: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS = 5
 _WINDOW_SEC   = 300
 
-_PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
-_SAFE_TU_RE  = re.compile(r'^\d{1,2}-\d{1,2}-\d{3,6}-\d{2,4}-\d{4}$')
-
+_PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$')
+_SAFE_TU_RE  = re.compile(r'^\d{1,2}-\d{1,2}-\d{2,4}-\d{3,4}-\d{4}$')
+_EMAIL_RE    = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
 
 def _check_rate_limit(ip: str) -> None:
     now = time.time()
@@ -82,15 +82,18 @@ async def register_stage1(
     db: Session = Depends(get_db),
 ):
     """Stage 1 — TU reg number, email, password."""
+    if not email.strip():
+        raise HTTPException(400, detail="Email is required")
     if not _SAFE_TU_RE.match(tu_registration_number.strip()):
         raise HTTPException(400, detail=(
-            "TU registration number must follow the pattern: "
-            "digits-digits-digits-digits-digits  (e.g. 2-2-0101-234-2021)"
+            "Invalid TU registration number. Please check your TU registration slip and enter the number exactly as shown."
         ))
     if not _PASSWORD_RE.match(password):
         raise HTTPException(400, detail=(
-            "Password must be at least 8 characters with at least one letter and one digit."
+            "Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, one digit, and one symbol."
         ))
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(400, detail="Invalid email address")
     if get_user_by_email(db, email):
         raise HTTPException(400, detail="Email is already registered")
     if get_user_by_tu(db, tu_registration_number.strip()):
@@ -126,6 +129,8 @@ async def register_stage2(
 ):
     """Stage 2 — Academic details."""
     from app.db.models import RegistrationStage
+    if re.search(r'\d', full_name.strip()):
+        raise HTTPException(400, detail="Full name cannot contain numbers")
     if year < 1 or year > 5:
         raise HTTPException(400, detail="Year must be between 1 and 5")
     if semester is not None and (semester < 1 or semester > 10):

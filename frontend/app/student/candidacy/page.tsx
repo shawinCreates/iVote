@@ -68,6 +68,8 @@ export default function StudentCandidacyPage() {
 
   const handleApply = async () => {
     if (!selectedPosition) { setError("Please select a position."); return; }
+    if (!photoFile) { setError("Please upload your campaign photo."); return; }
+    if (!manifesto.trim()) { setError("Please write your manifesto before submitting."); return; }
     setError(""); setSubmitting(true);
     try {
       await applyForCandidacy(Number(selectedPosition), manifesto, photoFile);
@@ -201,7 +203,7 @@ export default function StudentCandidacyPage() {
             maxSize={5 * 1024 * 1024}
             onFile={setPhotoFile}
             preview
-            hint="Optional · Max 5 MB · Your photo will be shown to voters"
+            hint="Required · Max 5 MB · Your photo will be shown to voters"
           />
           <Textarea label="Manifesto" name="manifesto" value={manifesto}
             onChange={(e) => setManifesto(e.target.value)}

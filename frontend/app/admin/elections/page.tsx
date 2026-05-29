@@ -110,12 +110,18 @@ export default function AdminElectionsPage() {
   };
 
   const handleCreate = async () => {
-    const validPositions = positions.filter((p) => p.name.trim());
-    if (validPositions.length === 0) {
-      toast.error("Add at least one position before creating the election");
+    if (!name.trim()) {
+      toast.error("Election name is required");
       return;
     }
-    if (validPositions.some((p) => p.max_votes < 1 || p.max_votes > 5)) {
+    const emptyIdx = positions.findIndex((p) => !p.name.trim());
+    if (emptyIdx !== -1) {
+      toast.error(positions.length === 1
+        ? "Position name is required"
+        : `Position ${emptyIdx + 1} name is required`);
+      return;
+    }
+    if (positions.some((p) => p.max_votes < 1 || p.max_votes > 5)) {
       toast.error("Each position must allow between 1 and 5 winners");
       return;
     }
@@ -127,7 +133,7 @@ export default function AdminElectionsPage() {
         nomination_end:   nptToISO(nominationEnd),
         voting_start:     nptToISO(votingStart),
         voting_end:       nptToISO(votingEnd),
-        positions: validPositions,
+        positions,
       });
       toast.success("Election created");
       setCreateOpen(false);

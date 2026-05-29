@@ -41,6 +41,13 @@ class PositionIn(BaseModel):
     description: Optional[str] = None
     max_votes: int = 1
 
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Position name cannot be empty")
+        return v.strip()
+
     @field_validator("max_votes")
     @classmethod
     def max_votes_range(cls, v: int) -> int:
