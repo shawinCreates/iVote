@@ -1,4 +1,9 @@
-from app.db.models import( Candidate, Position, ApprovalStatus, ElectionStatus, UserRole)
+import json
+from typing import Optional, List
+
+from sqlalchemy.orm import Session, joinedload
+
+from app.db.models import Candidate, HETally, Position, ApprovalStatus, ElectionStatus, UserRole
 from app.services.audit_notification_service import _audit, _notify
 from app.services.election_service import get_election
 from app.utils.helpers import _now
@@ -93,3 +98,43 @@ def increment_views(db, candidate_id):
         {Candidate.profile_views: Candidate.profile_views + 1}
     )
     db.commit()
+
+
+def get_candidate_by_id(db: Session, candidate_id: int) -> Optional[Candidate]:
+    return db.query(Candidate).filter(Candidate.id == candidate_id).first()
+
+
+def get_my_candidacies(db: Session, user_id: int) -> List[Candidate]:
+    candidates = (
+        db.query(Candidate)
+        .options(
+            joinedload(Candidate.position).joinedload(Position.election),
+            joinedload(Candidate.user),
+        )
+        .filter(Candidate.user_id == user_id)
+        .order_by(Candidate.applied_at.desc())
+        .all()
+    )
+
+    for c in candidates:
+        election = c.position.election
+        votes_received = None
+
+        if election.status == ElectionStatus.RESULTS_PUBLISHED:
+            tally = (
+                db.query(HETally)
+                .filter(
+                    HETally.election_id == election.id,
+                    HETally.position_id == c.position_id,
+                    HETally.decrypted_tally_json != None,
+                )
+                .first()
+            )
+            if tally:
+                counts = json.loads(tally.decrypted_tally_json)
+                votes_received = counts.get(str(c.id)) or counts.get(c.id) or 0
+
+        setattr(c, "votes_received", votes_received)
+        setattr(c, "election_id", election.id)
+
+    return candidates

@@ -6,12 +6,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import ElectionStatus, User
+from app.db.models import ElectionStatus, User  # User kept for Depends type hints
 from app.schemas.schemas import ElectionIn, ElectionOut, ElectionResults
 from app.services.election_service import (
     create_election,
     export_audit_csv,
-    get_audit_logs,
+    get_audit_logs_enriched,
     get_election,
     get_election_audit_logs,
     get_elections,
@@ -196,23 +196,7 @@ async def admin_audit_logs(
     db: Session  = Depends(get_db),
     admin: User  = Depends(require_admin),
 ):
-    logs = get_audit_logs(db, skip=skip, limit=limit)
-    user_ids = {l.user_id for l in logs if l.user_id}
-    users = {u.id: u.email for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
-    return [
-        {
-            "id": l.id,
-            "action": l.action,
-            "actor_role": l.actor_role,
-            "user_id": l.user_id,
-            "user_email": users.get(l.user_id),
-            "election_id": l.election_id,
-            "details": l.details,
-            "ip_address": l.ip_address,
-            "timestamp": l.timestamp,
-        }
-        for l in logs
-    ]
+    return get_audit_logs_enriched(db, skip=skip, limit=limit)
 
 
 @router.get(

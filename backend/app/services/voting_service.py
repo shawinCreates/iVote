@@ -4,10 +4,32 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.crypto import ballot_from_json, pub_from_json
-from app.db.models import ApprovalStatus, Candidate, ElectionStatus, EncryptedVote, VoterParticipation
+from app.db.models import ApprovalStatus, Candidate, ElectionStatus, EncryptedVote, User, VoterParticipation
 from app.schemas.schemas import HEBallotIn, VoteConfirmation
 from app.services.audit_notification_service import _audit
 from app.services.election_service import get_election
+from app.utils.helpers import _now
+
+
+def record_liveness_failure(db: Session, user_id: int, liveness: dict) -> None:
+    _audit(db, "FACE_LIVENESS_FAIL", user_id, actor_role="student",
+           details=f"reason={liveness['reason']} ear_var={liveness.get('variance')}")
+    db.commit()
+
+
+def record_face_attempt(db: Session, user_id: int, result: dict) -> None:
+    _audit(db, "FACE_VERIFY_ATTEMPT", user_id, actor_role="student",
+           details=(
+               f"verified={result['verified']} "
+               f"score={result.get('similarity') or result.get('distance')}"
+           ))
+    db.commit()
+
+
+def set_face_verified(db: Session, user: User) -> None:
+    user.last_face_verification_at = _now()
+    db.commit()
+
 
 def has_voted(db: Session, user_id: int, election_id: int) -> bool:
     return (db.query(VoterParticipation)

@@ -10,7 +10,7 @@ MANIFESTO_MAX_LEN = 5000
 # User 
 class UserOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str
     full_name: Optional[str]
     tu_registration_number: str
     faculty: Optional[str]
@@ -66,6 +66,13 @@ class ElectionIn(BaseModel):
     voting_start: datetime
     voting_end: datetime
     positions: List[PositionIn]
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Election name is required")
+        return v.strip()
 
     @field_validator("positions")
     @classmethod

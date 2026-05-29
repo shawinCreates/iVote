@@ -68,6 +68,10 @@ export default function StudentCandidacyPage() {
 
   const handleApply = async () => {
     if (!selectedPosition) { setError("Please select a position."); return; }
+    if (!photoFile) { setError("Please upload a campaign photo."); return; }
+    if (!manifesto.trim()) { setError("Manifesto is required - describe your vision and plans."); return; }
+    if (manifesto.trim().length < 20) { setError("Manifesto is too short. Please write at least 20 characters."); return; }
+    if (manifesto.length > 5000) { setError("Manifesto must be 5000 characters or fewer."); return; }
     setError(""); setSubmitting(true);
     try {
       await applyForCandidacy(Number(selectedPosition), manifesto, photoFile);
@@ -93,11 +97,11 @@ export default function StudentCandidacyPage() {
 
         const statusText = myApp
           ? myApp.approval_status === "approved"
-            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved — you're on the ballot.`
+            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved - you're on the ballot.`
             : myApp.approval_status === "pending"
             ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
             : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
-          : "Nominations are open — you can apply for candidacy.";
+          : "Nominations are open - you can apply for candidacy.";
 
         return (
           <div key={e.id}
@@ -201,11 +205,11 @@ export default function StudentCandidacyPage() {
             maxSize={5 * 1024 * 1024}
             onFile={setPhotoFile}
             preview
-            hint="Optional · Max 5 MB · Your photo will be shown to voters"
+            hint="Required · JPG or PNG · Max 5 MB · Shown to voters"
           />
           <Textarea label="Manifesto" name="manifesto" value={manifesto}
             onChange={(e) => setManifesto(e.target.value)}
-            rows={6} maxLength={2000} placeholder="Describe your vision and plans..." required />
+            rows={6} maxLength={5000} placeholder="Describe your vision and plans for the position..." required />
         </div>
       </Modal>
 
@@ -215,7 +219,7 @@ export default function StudentCandidacyPage() {
         {profileCandidate && (() => {
           const c = profileCandidate;
           const u = c.user ?? user ?? {};
-          const electionName = c.election_id ? (electionNameMap[c.election_id] ?? `Election #${c.election_id}`) : "—";
+          const electionName = c.election_id ? (electionNameMap[c.election_id] ?? `Election #${c.election_id}`) : "-";
           const resultsPublished = c.election_id && electionStatusMap[c.election_id] === "results_published";
           return (
             <div className="space-y-5">
@@ -231,7 +235,7 @@ export default function StudentCandidacyPage() {
               </div>
 
               <div className="text-center">
-                <div className="font-[var(--font-display)] text-base font-bold text-white mb-1">{u.full_name ?? "—"}</div>
+                <div className="font-[var(--font-display)] text-base font-bold text-white mb-1">{u.full_name ?? "-"}</div>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   <Badge status={c.approval_status ?? "pending"} />
                   {resultsPublished && c.votes_received != null && (
@@ -245,14 +249,14 @@ export default function StudentCandidacyPage() {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ["Position",  c.position?.name ?? "—"],
+                  ["Position",  c.position?.name ?? "-"],
                   ["Election",  electionName],
-                  ["Faculty",   u.faculty  ?? "—"],
-                  ["Program",   u.program  ?? "—"],
-                  ["Year",      u.year     != null ? `Year ${u.year}`         : "—"],
-                  ["Semester",  u.semester != null ? `Semester ${u.semester}` : "—"],
-                  ["Applied",   c.applied_at ? fmtDateTime(c.applied_at) : "—"],
-                  ["Reg. No.",  u.tu_registration_number ?? "—"],
+                  ["Faculty",   u.faculty  ?? "-"],
+                  ["Program",   u.program  ?? "-"],
+                  ["Year",      u.year     != null ? `Year ${u.year}`         : "-"],
+                  ["Semester",  u.semester != null ? `Semester ${u.semester}` : "-"],
+                  ["Applied",   c.applied_at ? fmtDateTime(c.applied_at) : "-"],
+                  ["Reg. No.",  u.tu_registration_number ?? "-"],
                 ].map(([label, val]) => (
                   <div key={label}>
                     <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mb-0.5">{label}</div>

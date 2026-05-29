@@ -1,45 +1,18 @@
-import json
-
 from fastapi import APIRouter, Depends, Request, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.db.database import get_db
-from app.db.models import Candidate, Election, ElectionStatus, HETally, Position, User, UserRole
+from app.db.models import User, UserRole
 from app.schemas.schemas import CandidateOut, RejectReasonIn
-from app.services.candidate_service import apply_candidacy, approve_candidate, get_all_candidates, get_approved_candidates, get_pending_candidates, increment_views, reject_candidate
+from app.services.candidate_service import apply_candidacy, approve_candidate, get_all_candidates, get_approved_candidates, get_candidate_by_id, get_my_candidacies, get_pending_candidates, increment_views, reject_candidate
 from app.services.auth_services import get_user_profile_photo_path
 from app.utils.dependencies import require_admin, require_verified
-from app.core.config import _ALLOWED_PHOTO_TYPES, _MAX_PHOTO_BYTES
-from app.core.cloudinary_storage import upload_to_cloudinary
+from app.core.config import _ALLOWED_PHOTO_TYPES, _EXT_MAP, _MAX_PHOTO_BYTES, CANDIDATE_PHOTO_DIR
 
-student_router = APIRouter(prefix="/api",       tags=["Candidates"])
-admin_router   = APIRouter(prefix="/api/admin", tags=["Candidates - Admin"])
-
-
-# ── Student-facing ─────────────────────────────────────────────────────────────
-
-@student_router.get("/candidates/{candidate_id}/photo")
-async def candidate_profile_photo(
-    candidate_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_verified),
-):
-    c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not c:
-        raise HTTPException(404, detail="Candidate not found")
-
-    # Prefer campaign photo, fall back to profile photo
-    if c.photo_path:
-        return RedirectResponse(c.photo_path)
-
-    owner = db.query(User).filter(User.id == c.user_id).first()
-    if owner and owner.profile_photo_path:
-        return RedirectResponse(str(owner.profile_photo_path))
-
-    raise HTTPException(404, detail="Photo not found")
-
+student_router = APIRouter(prefix ="/api", tags=["Candidates"])
+admin_router = APIRouter(prefix ="/api/admin", tags=["Candidates - Admin"])
 
 # Student-facing
 @student_router.get("/candidates/{candidate_id}/photo")
@@ -48,7 +21,7 @@ async def candidate_profile_photo(
     db: Session = Depends(get_db),
     user: User = Depends(require_verified),
 ):
-    c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    c = get_candidate_by_id(db, candidate_id)
     if not c:
         raise HTTPException(404, detail="Candidate not found")
     # Prefer campaign photo, fall back to registration profile photo
@@ -71,71 +44,24 @@ async def candidates_for_position(
 ):
     return get_approved_candidates(db, position_id)
 
-
 @student_router.get("/candidates/{candidate_id}", response_model=CandidateOut)
 async def get_candidate(
     candidate_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_verified),
 ):
-    c = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    c = get_candidate_by_id(db, candidate_id)
     if not c:
         raise HTTPException(404, detail="Candidate not found")
     increment_views(db, candidate_id)
     return c
-
 
 @student_router.get("/my-candidacy", response_model=List[CandidateOut])
 async def my_candidacy(
     db: Session = Depends(get_db),
     user: User = Depends(require_verified),
 ):
-    candidates = (
-        db.query(Candidate)
-        .options(
-            joinedload(Candidate.position).joinedload(Position.election),
-            joinedload(Candidate.user)
-        )
-        .filter(Candidate.user_id == user.id)
-        .order_by(Candidate.applied_at.desc())
-        .all()
-    )
-
-    result = []
-
-    for c in candidates:
-        election = c.position.election
-
-        votes_received = None
-
-        if election.status == ElectionStatus.RESULTS_PUBLISHED:
-            tally = (
-                db.query(HETally)
-                .filter(
-                    HETally.election_id == election.id,
-                    HETally.position_id == c.position_id,
-                    HETally.decrypted_tally_json != None
-                )
-                .first()
-            )
-
-            if tally:
-                counts = json.loads(tally.decrypted_tally_json)
-
-                # handle string/int key mismatch
-                votes_received = (
-                    counts.get(str(c.id))
-                    or counts.get(c.id)
-                    or 0
-                )
-
-        # attach dynamic fields (Pydantic will pick them)
-        setattr(c, "votes_received", votes_received)
-        setattr(c, "election_id", election.id)
-
-        result.append(c)
-
-    return result
+    return get_my_candidacies(db, user.id)
 
 
 @student_router.post("/candidates/apply", response_model=CandidateOut, status_code=201)
@@ -149,7 +75,7 @@ async def apply(
     if user.role == UserRole.ELECTION_HEAD:
         raise HTTPException(403, detail="Admin cannot apply for candidacy")
 
-    if not manifesto.strip():
+    if len(manifesto.strip()) == 0:
         raise HTTPException(400, detail="Manifesto cannot be empty")
     if len(manifesto) > 5000:
         raise HTTPException(400, detail="Manifesto must be 5000 characters or fewer")
@@ -161,8 +87,10 @@ async def apply(
     if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="Profile photo must be smaller than 5 MB")
 
-    public_id = f"cand_{user.id}_{position_id}"
-    photo_url = upload_to_cloudinary(content, public_id=public_id, folder="ovs/candidates_photo")
+    ext  = _EXT_MAP[photo.content_type]
+    dest = CANDIDATE_PHOTO_DIR / f"cand_{user.id}_{position_id}{ext}"
+    with dest.open("wb") as f:
+        f.write(content)
 
     relative = f"uploads/candidates_photo/cand_{user.id}_{position_id}{ext}"
     try:
@@ -179,7 +107,6 @@ async def pending_candidates(
     admin: User = Depends(require_admin),
 ):
     return get_pending_candidates(db, election_id)
-
 
 @admin_router.get("/candidates/all", response_model=List[CandidateOut])
 async def all_candidates(

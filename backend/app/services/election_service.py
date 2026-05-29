@@ -200,6 +200,30 @@ def get_election_audit_logs(db: Session, election_id: int) -> List[AuditLog]:
     )
 
 
+def get_audit_logs_enriched(db: Session, skip: int = 0, limit: int = 100) -> list[dict]:
+    """Returns audit logs with user emails resolved — keeps raw DB queries out of the router."""
+    logs = get_audit_logs(db, skip=skip, limit=limit)
+    user_ids = {l.user_id for l in logs if l.user_id}
+    email_map = (
+        {u.id: u.email for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+        if user_ids else {}
+    )
+    return [
+        {
+            "id":          l.id,
+            "action":      l.action,
+            "actor_role":  l.actor_role,
+            "user_id":     l.user_id,
+            "user_email":  email_map.get(l.user_id),
+            "election_id": l.election_id,
+            "details":     l.details,
+            "ip_address":  l.ip_address,
+            "timestamp":   l.timestamp,
+        }
+        for l in logs
+    ]
+
+
 def export_audit_csv(db: Session) -> str:
     """Returns audit logs as a CSV string."""
     logs = get_audit_logs(db, skip=0, limit=10_000)

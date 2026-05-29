@@ -110,6 +110,10 @@ export default function AdminElectionsPage() {
   };
 
   const handleCreate = async () => {
+    if (!name.trim()) {
+      toast.error("Election name is required");
+      return;
+    }
     const validPositions = positions.filter((p) => p.name.trim());
     if (validPositions.length === 0) {
       toast.error("Add at least one position before creating the election");

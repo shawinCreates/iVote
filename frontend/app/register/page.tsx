@@ -239,6 +239,14 @@ export default function RegisterPage() {
 
   const handleStage1 = async () => {
     if (!acceptedTerms) { setError("Please accept the Terms and Conditions to continue."); return; }
+    if (!email.trim()) { setError("Please enter your email address."); return; }
+    if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email.trim())) {
+      setError("Please enter a valid email address."); return;
+    }
+    if (!regNumber.trim()) { setError("Please enter your TU registration number."); return; }
+    if (!/^\d{1,2}-\d{1,2}-\d{2,4}-\d{3,4}-\d{4}$/.test(regNumber.trim())) {
+      setError("Invalid TU registration number. Expected format: 2-2-0101-234-2021"); return;
+    }
     setError(""); setLoading(true);
     try {
       const res = await registerStage1(regNumber, email, password);
@@ -250,6 +258,7 @@ export default function RegisterPage() {
 
   const handleStage2 = async () => {
     if (!fullName.trim()) { setError("Please enter your full name."); return; }
+    if (/\d/.test(fullName)) { setError("Full name must not contain numbers."); return; }
     if (!faculty) { setError("Please select your faculty."); return; }
     if (!program) { setError("Please select your program."); return; }
     if (!year) { setError("Please select your year."); return; }
@@ -350,7 +359,7 @@ export default function RegisterPage() {
 
             <div className="text-center mb-4">
               <div className="font-[var(--font-display)] text-2xl font-black text-white">
-                i<span className="text-gold">Vote</span>
+                Secure <span className="text-gold">Online Voting System</span>
               </div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-text-3 font-[var(--font-display)] mt-1 mb-4">
                 Student Registration
@@ -371,8 +380,7 @@ export default function RegisterPage() {
                   name="reg"
                   value={regNumber}
                   onChange={(e) => setRegNumber(e.target.value)}
-                  placeholder="2-2-0101-234-2021"
-                  hint="Format: level-faculty-stream-roll-year  (e.g. 2-2-0101-234-2021)"
+                  placeholder="1-2-34-567-2021"
                   required
                 />
                 <Input
@@ -389,7 +397,7 @@ export default function RegisterPage() {
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 8 characters with letters and numbers"
+                  placeholder="Min 8 characters with uppercase and lowercase letters, numbers and symbols"
                   showStrength
                   required
                 />
@@ -494,11 +502,11 @@ export default function RegisterPage() {
                 </div>
                 <FileUpload
                   label="University ID Card"
-                  accept="image/*,.pdf"
+                  accept="image/*"
                   maxSize={5 * 1024 * 1024}
                   onFile={setIdCardFile}
                   preview
-                  hint="JPEG, PNG, or PDF · Max 5 MB"
+                  hint="JPEG or PNG · Max 5 MB"
                 />
                 <div className="flex gap-2">
                   <Button variant="ghost" onClick={() => setStep(1)} className="flex-1">Back</Button>

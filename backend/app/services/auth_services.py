@@ -39,12 +39,14 @@ def create_student(
 
 
 def get_pending_students(db: Session) -> List[User]:
+    from app.db.models import RegistrationStage
     return (
         db.query(User)
         .filter(
             User.is_verified == False,
             User.is_active == True,
             User.role.in_([UserRole.STUDENT, UserRole.CANDIDATE]),
+            User.registration_stage == RegistrationStage.COMPLETE,
         )
         .order_by(User.created_at)
         .all()
@@ -97,6 +99,96 @@ def reject_student(
            details=f"Rejected user ID {user_id}", ip=ip) 
     db.commit()
     return True
+
+# ---------------------------------------------------------------------------
+# Multi-stage registration persistence
+# ---------------------------------------------------------------------------
+
+def save_stage1_user(db: Session, email: str, tu: str, password: str) -> User:
+    from app.db.models import RegistrationStage
+    from app.core.security import hash_password
+    user = User(
+        email=email,
+        tu_registration_number=tu,
+        password_hash=hash_password(password),
+        full_name="",
+        faculty="",
+        year=0,
+        role=UserRole.STUDENT,
+        registration_stage=RegistrationStage.STAGE1,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def save_stage2_info(
+    db: Session, user: User,
+    full_name: str, faculty: str, program: str,
+    year: int, semester: Optional[int],
+) -> None:
+    from app.db.models import RegistrationStage
+    user.full_name          = full_name
+    user.faculty            = faculty
+    user.program            = program
+    user.year               = year
+    user.semester           = semester
+    user.registration_stage = RegistrationStage.STAGE2
+    db.commit()
+
+
+def save_stage3_id_card(db: Session, user: User, id_card_path: str) -> None:
+    from app.db.models import RegistrationStage
+    user.id_card_path       = id_card_path
+    user.registration_stage = RegistrationStage.STAGE3
+    db.commit()
+
+
+def complete_registration(db: Session, user: User, photo_path: str) -> User:
+    from app.db.models import RegistrationStage
+    user.profile_photo_path  = photo_path
+    user.registration_stage  = RegistrationStage.COMPLETE
+    db.commit()
+    db.refresh(user)
+    _audit(db, "REGISTRATION_COMPLETE", user.id,
+           actor_role="student", details="Registration completed — awaiting verification")
+    db.commit()
+    return user
+
+
+def audit_registration_resumed(db: Session, user_id: int, stage_value: str) -> None:
+    _audit(db, "REGISTRATION_RESUMED", user_id,
+           actor_role="student", details=f"Resumed registration at stage: {stage_value}")
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
+
+def set_password_reset_token(db: Session, user: User, token: str, expiry) -> None:
+    user.reset_token            = token
+    user.reset_token_expires_at = expiry
+    db.commit()
+
+
+def get_user_by_reset_token(db: Session, token: str) -> Optional[User]:
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    return (db.query(User)
+            .filter(User.reset_token == token,
+                    User.reset_token_expires_at > now)
+            .first())
+
+
+def apply_password_reset(db: Session, user: User, new_password: str) -> None:
+    from app.core.security import hash_password
+    user.password_hash      = hash_password(new_password)
+    user.reset_token        = None
+    user.reset_token_expires_at = None
+    db.commit()
+
 
 def get_user_id_card_path(db: Session, user_id: int) -> Path | None:
     user = db.query(User).filter(User.id == user_id).first()

@@ -1,17 +1,14 @@
+from datetime import datetime, timezone
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from app.db.database import engine, Base
-from app.services.schedular_service import start
-from app.core.middleware import (
-    SecurityHeadersMiddleware,
-    RequestLoggingMiddleware,
-    RateLimitMiddleware
-)
 
 from app.db.database import engine, Base, get_db
 from app.services.schedular_service import start

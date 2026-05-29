@@ -11,7 +11,12 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.services.auth_services import create_student, get_user_by_email, get_user_by_tu
+from app.services.auth_services import (
+    apply_password_reset, audit_registration_resumed,
+    complete_registration, get_user_by_email, get_user_by_reset_token,
+    get_user_by_tu, save_stage1_user, save_stage2_info, save_stage3_id_card,
+    set_password_reset_token,
+)
 from app.services.audit_notification_service import _audit, get_notifications, mark_notifications_read
 from app.utils.dependencies import get_current_user
 from app.utils.helpers import authenticate, create_token
@@ -29,8 +34,9 @@ _login_attempts: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS = 5
 _WINDOW_SEC   = 300
 
-_PASSWORD_RE = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
-_SAFE_TU_RE  = re.compile(r'^\d{1,2}-\d{1,2}-\d{3,6}-\d{2,4}-\d{4}$')
+_PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$')
+_SAFE_TU_RE  = re.compile(r'^\d{1,2}-\d{1,2}-\d{2,4}-\d{3,4}-\d{4}$')
+_EMAIL_RE    = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
 
 
 def _check_rate_limit(ip: str) -> None:
@@ -66,6 +72,12 @@ async def login(
             status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated. You may re-register with corrected information.",
         )
+    from app.db.models import RegistrationStage, UserRole
+    if user.role in (UserRole.STUDENT, UserRole.CANDIDATE) and user.registration_stage != RegistrationStage.COMPLETE:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Your registration is incomplete. Please finish all registration steps before logging in.",
+        )
     _login_attempts[ip] = []
     token = create_token(user.id, user.role.value)
     return TokenOut(access_token=token, user=user)
@@ -81,10 +93,13 @@ async def register_stage1(
     db: Session = Depends(get_db),
 ):
     """Stage 1 — TU reg number, email, password."""
+    if not email.strip():
+        raise HTTPException(400, detail="Email is required")
+    if not _EMAIL_RE.match(email.strip()):
+        raise HTTPException(400, detail="Please enter a valid email address")
     if not _SAFE_TU_RE.match(tu_registration_number.strip()):
         raise HTTPException(400, detail=(
-            "TU registration number must follow the pattern: "
-            "digits-digits-digits-digits-digits  (e.g. 2-2-0101-234-2021)"
+            "Invalid TU registration number. Please check your TU registration slip and enter the number exactly as shown."
         ))
     if not _PASSWORD_RE.match(password):
         raise HTTPException(400, detail=(
@@ -95,21 +110,7 @@ async def register_stage1(
     if get_user_by_tu(db, tu_registration_number.strip()):
         raise HTTPException(400, detail="TU registration number is already registered")
 
-    # Persist a partial user so stage 2 can update it
-    from app.db.models import RegistrationStage
-    user = User(
-        email                  = email.strip().lower(),
-        tu_registration_number = tu_registration_number.strip(),
-        password_hash          = hash_password(password),
-        full_name              = "",
-        faculty                = "",
-        year                   = 0,
-        role                   = UserRole.STUDENT,
-        registration_stage     = RegistrationStage.STAGE1,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    user  = save_stage1_user(db, email.strip().lower(), tu_registration_number.strip(), password)
     token = create_token(user.id, user.role.value)
     return {"user_id": user.id, "stage_token": token, "stage": "stage1_complete"}
 
@@ -125,19 +126,15 @@ async def register_stage2(
     user: User         = Depends(get_current_user),
 ):
     """Stage 2 — Academic details."""
-    from app.db.models import RegistrationStage
+    if not full_name.strip():
+        raise HTTPException(400, detail="Full name is required")
+    if not re.match(r"^[^\d]+$", full_name.strip()):
+        raise HTTPException(400, detail="Full name must not contain numbers")
     if year < 1 or year > 5:
         raise HTTPException(400, detail="Year must be between 1 and 5")
     if semester is not None and (semester < 1 or semester > 10):
         raise HTTPException(400, detail="Semester must be between 1 and 10")
-
-    user.full_name         = full_name.strip()
-    user.faculty           = faculty
-    user.program           = program.strip()
-    user.year              = year
-    user.semester          = semester
-    user.registration_stage = RegistrationStage.STAGE2
-    db.commit()
+    save_stage2_info(db, user, full_name.strip(), faculty, program.strip(), year, semester)
     return {"stage": "stage2_complete"}
 
 
@@ -148,22 +145,19 @@ async def register_stage3(
     user: User          = Depends(get_current_user),
 ):
     """Stage 3 — Upload ID card."""
-    from app.db.models import RegistrationStage
-    allowed = {"image/jpeg", "image/png", "image/jpg", "application/pdf"}
-    if id_card.content_type not in allowed:
-        raise HTTPException(400, detail="ID card must be JPG, PNG, or PDF")
+    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/jpg"}
+    ALLOWED_EXTS  = {".jpg", ".jpeg", ".png"}
+    filename_ext  = ("." + id_card.filename.rsplit(".", 1)[-1].lower()) if id_card.filename and "." in id_card.filename else ""
+    if id_card.content_type not in ALLOWED_TYPES and filename_ext not in ALLOWED_EXTS:
+        raise HTTPException(400, detail="Only JPG or PNG images are allowed (max 5 MB)")
     content = await id_card.read()
     if len(content) > _MAX_PHOTO_BYTES:
         raise HTTPException(400, detail="ID card file must be smaller than 5 MB")
-
     ext  = _EXT_MAP[id_card.content_type]
     dest = ID_CARD_DIR / f"id_{user.tu_registration_number}{ext}"
     with dest.open("wb") as f:
         f.write(content)
-
-    user.id_card_path       = f"uploads/id_cards/id_{user.tu_registration_number}{ext}"
-    user.registration_stage = RegistrationStage.STAGE3
-    db.commit()
+    save_stage3_id_card(db, user, f"uploads/id_cards/id_{user.tu_registration_number}{ext}")
     return {"stage": "stage3_complete"}
 
 
@@ -174,29 +168,17 @@ async def register_stage4(
     user: User         = Depends(get_current_user),
 ):
     """Stage 4 — Capture profile photo from front camera."""
-    from app.db.models import RegistrationStage
     if not photo_data.startswith("data:image"):
         raise HTTPException(400, detail="Expected a base64 image data-URI")
-
     try:
-        header, b64 = photo_data.split(",", 1)
-        img_bytes   = base64.b64decode(b64)
+        _, b64    = photo_data.split(",", 1)
+        img_bytes = base64.b64decode(b64)
     except Exception:
         raise HTTPException(400, detail="Invalid image data")
-
-    ext  = ".jpg"
-    dest = PROFILE_PHOTO_DIR / f"profile_{user.tu_registration_number}{ext}"
+    dest = PROFILE_PHOTO_DIR / f"profile_{user.tu_registration_number}.jpg"
     with dest.open("wb") as f:
         f.write(img_bytes)
-
-    user.profile_photo_path  = f"uploads/profile_photo/profile_{user.tu_registration_number}{ext}"
-    user.registration_stage  = RegistrationStage.COMPLETE
-    db.commit()
-    db.refresh(user)
-    _audit(db, "REGISTRATION_COMPLETE", user.id,
-           actor_role="student", details="Registration completed — awaiting verification")
-    db.commit()
-    return user
+    return complete_registration(db, user, f"uploads/profile_photo/profile_{user.tu_registration_number}.jpg")
 
 @router.post("/forgot-password")
 async def forgot_password(
@@ -205,10 +187,8 @@ async def forgot_password(
 ):
     user = get_user_by_email(db, email.strip().lower())
     if user and user.is_active:
-        token                  = generate_reset_token()
-        user.reset_token          = token
-        user.reset_token_expires_at = reset_token_expiry()
-        db.commit()
+        token = generate_reset_token()
+        set_password_reset_token(db, user, token, reset_token_expiry())
         send_password_reset_email(user.email, user.full_name or "Student", token)
     return {"message": "If that email is registered, a reset link has been sent."}
 
@@ -222,17 +202,10 @@ async def reset_password(
         raise HTTPException(400, detail=(
             "Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, one digit, and one symbol (e.g. @, #, !)"
         ))
-    now  = datetime.now(timezone.utc)
-    user = (db.query(User)
-            .filter(User.reset_token == token,
-                    User.reset_token_expires_at > now)
-            .first())
+    user = get_user_by_reset_token(db, token)
     if not user:
         raise HTTPException(400, detail="Reset link is invalid or has expired.")
-    user.password_hash     = hash_password(password)
-    user.reset_token       = None
-    user.reset_token_expires = None
-    db.commit()
+    apply_password_reset(db, user, password)
     return {"message": "Password has been reset. You can now log in."}
 
 # ── Registration Resume ────────────────────────────────────────────────────────
@@ -262,10 +235,7 @@ async def resume_registration(
         raise HTTPException(400, detail="Registration is already complete. Awaiting admin verification. Please log in normally.")
 
     token = create_token(user.id, user.role.value)
-    _audit(db, "REGISTRATION_RESUMED", user.id, actor_role="student",
-           details=f"Resumed registration at stage: {user.registration_stage.value}")
-    db.commit()
-
+    audit_registration_resumed(db, user.id, user.registration_stage.value)
     return {
         "user_id": user.id,
         "token":   token,

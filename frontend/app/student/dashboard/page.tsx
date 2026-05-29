@@ -76,6 +76,46 @@ export default function StudentDashboardPage() {
           </Card>
         ))}
       </div>
+        {/* Nomination window banners - shown above voting */}
+      {nominationElections.map((e: any) => {
+        const myApp = candidacies.find((c: any) => c.election_id === e.id);
+        const statusText = myApp
+          ? myApp.approval_status === "approved"
+            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved - you're on the ballot.`
+            : myApp.approval_status === "pending"
+            ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
+            : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
+          : "Nominations are open - submit your candidacy application.";
+
+        return (
+          <Card key={e.id} glow="cyan">
+            <CardBody>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <Badge status="nomination_open" className="mb-2" />
+                  <h2 className="font-[var(--font-display)] text-lg font-bold text-white">{e.name}</h2>
+                  <div className="text-xs text-text-3 mt-1 flex items-center gap-1">
+                    <FiClock size={10} />
+                    {fmtDateTime(e.nomination_start)} - {fmtDateTime(e.nomination_end)}
+                  </div>
+                  <div className="text-xs text-text-2 mt-1.5">{statusText}</div>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  <ElectionCountdown endTime={e.nomination_end} label="Nominations Close" />
+                  <div className="flex flex-col items-end gap-1.5">
+                    {myApp && <Badge status={myApp.approval_status} />}
+                    <Link href="/student/candidacy">
+                      <Button variant={myApp ? "ghost" : "primary"} size="sm" leftIcon={myApp ? undefined : <FiPlus size={13} />}>
+                        {myApp ? "View Application" : "Apply Now"}
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        );
+      })}
 
       {/* Active voting banner */}
       {votingElection && (
@@ -87,7 +127,7 @@ export default function StudentDashboardPage() {
                 <h2 className="font-[var(--font-display)] text-lg font-bold text-white">{votingElection.name}</h2>
                 <div className="text-xs text-text-3 mt-1 flex items-center gap-1">
                   <FiClock size={10} />
-                  {fmtDateTime(votingElection.voting_start)} — {fmtDateTime(votingElection.voting_end)}
+                  {fmtDateTime(votingElection.voting_start)} - {fmtDateTime(votingElection.voting_end)}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -100,40 +140,6 @@ export default function StudentDashboardPage() {
           </CardBody>
         </Card>
       )}
-
-      {/* Per-election nomination banners */}
-      {nominationElections.map((e: any) => {
-        const myApp = candidacies.find((c: any) => c.election_id === e.id);
-        const statusText = myApp
-          ? myApp.approval_status === "approved"
-            ? `Your candidacy for ${myApp.position?.name ?? "this position"} is approved — you're on the ballot.`
-            : myApp.approval_status === "pending"
-            ? `Your application for ${myApp.position?.name ?? "this position"} is under review.`
-            : `Your application for ${myApp.position?.name ?? "this position"} was not approved.`
-          : "Nominations are open — you can apply for candidacy.";
-
-        return (
-          <Card key={e.id} glow="cyan">
-            <CardBody>
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Badge status="nomination_open" className="mb-1.5" />
-                  <div className="font-[var(--font-display)] text-sm font-bold text-white truncate">{e.name}</div>
-                  <div className="text-xs text-text-3 mt-0.5">{statusText}</div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {myApp && <Badge status={myApp.approval_status} />}
-                  <Link href="/student/candidacy">
-                    <Button variant="ghost" size="sm" leftIcon={myApp ? undefined : <FiPlus size={13} />}>
-                      {myApp ? "View Application" : "Apply Now"}
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        );
-      })}
 
       {/* Upcoming elections */}
       {upcomingElections.map((e: any) => (
@@ -194,8 +200,12 @@ export default function StudentDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-white">{e.name}</div>
                       <div className="text-xs text-text-3 flex items-center gap-1 mt-0.5">
-                        <FiClock size={10} />
-                        {fmtDateTime(e.voting_start)} — {fmtDateTime(e.voting_end)}
+                        <FiClock size={10} /> Nomination:
+                        {fmtDateTime(e.nomination_start)} - {fmtDateTime(e.nomination_end)}
+                      </div>
+                      <div className="text-xs text-text-3 flex items-center gap-1 mt-0.5">
+                        <FiClock size={10} /> Voting:
+                        {fmtDateTime(e.voting_start)} - {fmtDateTime(e.voting_end)}
                       </div>
                     </div>
                     <Badge status={e.status} />

@@ -272,7 +272,7 @@ export default function StudentVotePage() {
                       return (
                         <div key={id} className="text-sm text-white flex items-center gap-2">
                           <FiCheck size={14} className="text-gold" />
-                          {c?.user?.full_name ?? "—"}
+                          {c?.user?.full_name ?? "-"}
                         </div>
                       );
                     })

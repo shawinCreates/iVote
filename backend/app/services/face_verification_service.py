@@ -221,8 +221,9 @@ def check_liveness(frames_b64: list[str]) -> dict:
     max_ear  = float(np.max(ear_arr))
     drop     = max_ear - min_ear
 
-    # Pass if variance is high enough OR there's a clear drop-and-recover
-    live = (variance >= EAR_VAR_THRESHOLD) or (drop >= EAR_DROP_THRESHOLD)
+    # Require BOTH variance and a clear drop — OR lets camera-shake on a printed
+    # photo fake the variance condition without any actual blink occurring.
+    live = (variance >= EAR_VAR_THRESHOLD) and (drop >= EAR_DROP_THRESHOLD)
 
     return {
         "live":       live,

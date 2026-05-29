@@ -64,7 +64,7 @@ class User(Base):
     reset_token_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     # Face verification snapshot stored per voting session
-    last_face_verified_at = Column(DateTime(timezone=True), nullable=True)
+    last_face_verification_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
     candidacies    = relationship("Candidate", back_populates="user",  cascade="all, delete-orphan")

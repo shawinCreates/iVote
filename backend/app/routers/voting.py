@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
 from app.schemas.schemas import FaceVerifyIn, HEBallotIn, HasVotedOut, VoteConfirmation
-from app.services.audit_notification_service import _audit
 from app.services.face_verification_service import MAX_RETRIES, check_liveness, verify_face
-from app.services.voting_service import cast_he_ballot, get_participation
+from app.services.voting_service import (
+    cast_he_ballot, get_participation,
+    record_face_attempt, record_liveness_failure, set_face_verified,
+)
 from app.utils.dependencies import require_verified
 from app.utils.helpers import _now
 
@@ -45,9 +47,7 @@ async def face_verify(
         if payload.liveness_frames:
             liveness = check_liveness(payload.liveness_frames)
             if not liveness["live"]:
-                _audit(db, "FACE_LIVENESS_FAIL", user.id, actor_role="student",
-                       details=f"reason={liveness['reason']} ear_var={liveness.get('variance')}")
-                db.commit()
+                record_liveness_failure(db, user.id, liveness)
                 raise HTTPException(
                     status_code=403,
                     detail={
@@ -65,16 +65,7 @@ async def face_verify(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Audit the attempt
-    _audit(
-        db, "FACE_VERIFY_ATTEMPT", user.id,
-        actor_role="student",
-        details=(
-            f"verified={result['verified']} "
-            f"score={result.get('similarity') or result.get('distance')}"
-        ),
-    )
-    db.commit()
+    record_face_attempt(db, user.id, result)
 
     if not result["verified"]:
         raise HTTPException(
@@ -91,11 +82,11 @@ async def face_verify(
             },
         )
 
-    user.last_face_verification_at = _now()
-    db.commit()
-
+    set_face_verified(db, user)
     return {"verified": True}
 
+
+FACE_VERIFY_WINDOW_MINUTES = 30
 
 @router.post("/vote", response_model=VoteConfirmation)
 async def cast_vote(
@@ -104,6 +95,18 @@ async def cast_vote(
     db: Session = Depends(get_db),
     user: User = Depends(require_verified),
 ):
+    from datetime import timedelta
+    if not user.last_face_verification_at:
+        raise HTTPException(
+            status_code=403,
+            detail="Face verification is required before casting a vote.",
+        )
+    age = _now() - user.last_face_verification_at
+    if age > timedelta(minutes=FACE_VERIFY_WINDOW_MINUTES):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Face verification has expired. Please re-verify your identity before voting.",
+        )
     try:
         return cast_he_ballot(db, user.id, ballot, ip=request.client.host)
     except ValueError as e:

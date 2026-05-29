@@ -136,7 +136,7 @@ export default function StudentCandidatesPage() {
             </>
           ) : (
             <>
-              <span className="text-sm text-text-2">Nominations are open — you can apply for candidacy.</span>
+              <span className="text-sm text-text-2">Nominations are open - you can apply for candidacy.</span>
               <Button size="sm" leftIcon={<FiPlus size={13} />} onClick={() => openApply()}>Apply Now</Button>
             </>
           )}
@@ -202,10 +202,10 @@ export default function StudentCandidatesPage() {
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
-                ["Faculty",  detail.user?.faculty  ?? "—"],
-                ["Program",  detail.user?.program  ?? "—"],
-                ["Year",     detail.user?.year != null ? `Year ${detail.user.year}` : "—"],
-                ["Semester", detail.user?.semester != null ? `Semester ${detail.user.semester}` : "—"],
+                ["Faculty",  detail.user?.faculty  ?? "-"],
+                ["Program",  detail.user?.program  ?? "-"],
+                ["Year",     detail.user?.year != null ? `Year ${detail.user.year}` : "-"],
+                ["Semester", detail.user?.semester != null ? `Semester ${detail.user.semester}` : "-"],
               ].map(([label, val]) => (
                 <div key={label}>
                   <div className="text-[10px] uppercase tracking-wider text-text-3 font-[var(--font-display)] mb-0.5">{label}</div>
