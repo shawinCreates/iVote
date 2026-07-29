@@ -48,7 +48,7 @@ export default function LoginPage() {
         <StarField />
         <div className="relative z-10 text-center px-12">
           <div className="font-[var(--font-display)] text-5xl font-black text-white mb-3">
-            Secure<span className="text-gold"> Online Voting System</span>
+            Online<span className="text-gold"> Voting System</span>
           </div>
           <div className="max-w-[320px] mx-auto space-y-4 text-sm text-text-3 leading-relaxed">
             <div className="flex items-center gap-3">
@@ -74,10 +74,7 @@ export default function LoginPage() {
         <div className="w-full max-w-[380px] relative z-10">
           <div className="lg:hidden text-center mb-8">
             <div className="font-[var(--font-display)] text-3xl font-black text-white">
-              i<span className="text-gold">Vote</span>
-            </div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-text-3 font-[var(--font-display)] mt-1">
-              Secure University Elections
+              Online<span className="text-gold"> Voting System</span>
             </div>
           </div>
 

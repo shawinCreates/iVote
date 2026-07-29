@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
       <StarField />
       <div className="w-full max-w-[400px] bg-surface border border-border rounded-[var(--radius-xl)] p-7 relative z-10 animate-fade-up">
         <div className="text-center mb-5">
-          <div className="font-[var(--font-display)] text-2xl font-black text-white mb-1">Secure <span className="text-gold">Online Voting System</span></div>
+          <div className="font-[var(--font-display)] text-2xl font-black text-white mb-1">Online <span className="text-gold">Voting System</span></div>
           <h1 className="font-[var(--font-display)] text-base font-bold text-white">Reset Password</h1>
           <p className="text-sm text-text-3 mt-1">Enter your email for a reset link.</p>
         </div>

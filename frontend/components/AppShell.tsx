@@ -88,10 +88,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={`border-b border-border relative z-[1] ${collapsed ? "py-5 text-center" : "px-5 py-5"}`}>
           {!collapsed ? (
             <>
-              <div className="font-[var(--font-display)] text-[22px] font-black text-white">Secure <span className="text-gold">Online Voting System</span></div>
+              <div className="font-[var(--font-display)] text-[22px] font-black text-white">Online <span className="text-gold">Voting System</span></div>
             </>
           ) : (
-            <div className="font-[var(--font-display)] text-sm font-black text-gold">iV</div>
+            <div className="font-[var(--font-display)] text-sm font-black text-gold">OVS</div>
           )}
         </div>
 

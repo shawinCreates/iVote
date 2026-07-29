@@ -3,7 +3,7 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Secure Online Voting System",
+  title: "Online Voting System",
   description: "Homomorphic encryption-powered university election platform",
 };
 

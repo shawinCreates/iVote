@@ -72,7 +72,7 @@ function TermsContent() {
   return (
     <div className="space-y-5 text-sm text-text-2 leading-relaxed">
       <p className="text-text-3 text-xs">
-        Please read these terms carefully before registering for Secure Online Voting System, the Tribhuvan University campus election system.
+        Please read these terms carefully before registering for Online Voting System, the Tribhuvan University campus election system.
       </p>
 
       <section>
@@ -81,7 +81,7 @@ function TermsContent() {
         </h3>
         <p>
           Only currently enrolled students of Tribhuvan University (TU) with a valid TU registration
-          number may create an account and participate in elections conducted through Secure Online Voting System. Your
+          number may create an account and participate in elections conducted through Online Voting System. Your
           enrollment status may be verified by the Election Head.
         </p>
       </section>
@@ -124,7 +124,7 @@ function TermsContent() {
           5. Identity Verification
         </h3>
         <p>
-          Secure Online Voting System uses face recognition to verify your identity before casting a vote. Your profile
+          Online Voting System uses face recognition to verify your identity before casting a vote. Your profile
           photo and university ID card, captured during registration, are stored securely and used
           solely for identity verification. They will not be shared with third parties.
         </p>
@@ -294,6 +294,7 @@ export default function RegisterPage() {
     try {
       const frames = await camera.captureFrames();
       setCapturedPhoto(frames[0]);
+      camera.stopCamera();
     } catch { setError("Failed to capture photo. Try again."); }
     setCapturing(false);
   };
@@ -359,7 +360,7 @@ export default function RegisterPage() {
 
             <div className="text-center mb-4">
               <div className="font-[var(--font-display)] text-2xl font-black text-white">
-                Secure <span className="text-gold">Online Voting System</span>
+                Online <span className="text-gold">Voting System</span>
               </div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-text-3 font-[var(--font-display)] mt-1 mb-4">
                 Student Registration
@@ -420,7 +421,7 @@ export default function RegisterPage() {
                       >
                         Terms and Conditions
                       </button>
-                      {" "}for Secure Online Voting System.
+                      {" "}for Online Voting System.
                     </span>
                   </label>
                 </div>
@@ -541,11 +542,11 @@ export default function RegisterPage() {
 
                 <div className="flex gap-2">
                   {!camera.isActive && !capturedPhoto && (
-                    <Button variant="primary-cyan" onClick={camera.startCamera} className="flex-1">
+                    <Button variant="primary-cyan" onClick={async () => { await camera.startCamera(); }} className="flex-1">
                       Start Camera
                     </Button>
                   )}
-                  {camera.isActive && !capturedPhoto && (
+                  {camera.isReady && !capturedPhoto && (
                     <Button onClick={handleCapture} isLoading={capturing} className="flex-1">
                       Capture Photo
                     </Button>
@@ -554,7 +555,7 @@ export default function RegisterPage() {
                     <>
                       <Button
                         variant="ghost"
-                        onClick={() => { setCapturedPhoto(null); camera.startCamera(); }}
+                        onClick={async () => { camera.stopCamera(); setCapturedPhoto(null); await camera.startCamera(); }}
                         className="flex-1"
                       >
                         Retake

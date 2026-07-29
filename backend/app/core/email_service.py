@@ -1,5 +1,5 @@
 """
-email_service.py — SendGrid email integration for iVote
+email_service.py — SendGrid email integration for Online Voting System
 =======================================================
 Sends password-reset emails via SendGrid's HTTP API.
 Falls back to console logging when SENDGRID_API_KEY is not set
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 APP_URL        = os.getenv("APP_URL", "http://localhost:8000")
 SENDGRID_KEY   = os.getenv("SENDGRID_API_KEY", "")
 FROM_EMAIL     = os.getenv("FROM_EMAIL", "noreply@ivote.app")
-FROM_NAME      = os.getenv("FROM_NAME",  "iVote — Campus Election System")
+FROM_NAME      = os.getenv("FROM_NAME",  "Online Voting System")
 RESET_EXPIRY_H = int(os.getenv("RESET_TOKEN_EXPIRY_HOURS", "2"))
 
 
@@ -75,7 +75,7 @@ def reset_token_expiry() -> datetime:
 
 def send_password_reset_email(to_email: str, full_name: str, token: str) -> bool:
     reset_url = f"{APP_URL}/reset-password?token={token}"
-    subject   = "Reset your iVote password"
+    subject   = "Reset your Online Voting System password"
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -90,7 +90,7 @@ def send_password_reset_email(to_email: str, full_name: str, token: str) -> bool
           <td style="background:linear-gradient(135deg,#0d1b2a,#1a3a5c);
                      padding:32px;text-align:center;border-bottom:1px solid #1e3a5f">
             <div style="font-size:28px;font-weight:800;letter-spacing:2px;
-                        color:#00d4ff;font-family:monospace">iVOTE</div>
+                        color:#00d4ff;font-family:monospace">ONLINE VOTING SYSTEM</div>
             <div style="color:#64748b;font-size:13px;margin-top:4px">
               Secure Campus Election System
             </div>
@@ -104,7 +104,7 @@ def send_password_reset_email(to_email: str, full_name: str, token: str) -> bool
             </h2>
             <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 24px">
               Hi <strong style="color:#e2e8f0">{full_name}</strong>,<br><br>
-              We received a request to reset your iVote password.
+              We received a request to reset your Online Voting System password.
               Click the button below to choose a new one.
               This link expires in <strong style="color:#00d4ff">{RESET_EXPIRY_H} hours</strong>.
             </p>
@@ -132,7 +132,7 @@ def send_password_reset_email(to_email: str, full_name: str, token: str) -> bool
         <tr>
           <td style="padding:20px 36px;border-top:1px solid #1e3a5f;
                      text-align:center;color:#475569;font-size:12px">
-            iVote · Tribhuvan University Campus Election System<br>
+            Online Voting System · Tribhuvan University Campus Election System<br>
             This is an automated message — please do not reply.
           </td>
         </tr>

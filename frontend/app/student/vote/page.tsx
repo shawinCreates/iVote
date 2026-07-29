@@ -64,20 +64,20 @@ export default function StudentVotePage() {
     setError(""); setVerifying(true);
     try {
       await camera.startCamera();
-      await new Promise((r) => setTimeout(r, 1000));
       const frames = await camera.captureFrames((idx) => {
         if (idx === camera.BLINK_FRAME) setFacePrompt("Please blink now");
         else setFacePrompt(`Capturing frame ${idx + 1}/8...`);
       });
+      camera.stopCamera();
       setFacePrompt("Verifying identity...");
       const mainImage = frames[0].replace(/^data:image\/[^;]+;base64,/, "");
       const livenessFrames = frames.map((f) => f.replace(/^data:image\/[^;]+;base64,/, ""));
       await verifyFace(mainImage, livenessFrames);
-      camera.stopCamera();
       setFacePrompt("");
       toast.success("Face verified successfully");
       setStep("ballot");
     } catch (err) {
+      camera.stopCamera();
       setError(extractError(err));
       setFacePrompt("");
     }
@@ -285,7 +285,7 @@ export default function StudentVotePage() {
 
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setStep("ballot")}>Back to Ballot</Button>
-              <Button onClick={handleSubmit} isLoading={submitting} leftIcon={<FiLock size={14} />}>Encrypt & Submit</Button>
+              <Button onClick={handleSubmit} isLoading={submitting} leftIcon={<FiLock size={14} />}>Submit</Button>
             </div>
           </CardBody>
         </Card>

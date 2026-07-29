@@ -1,196 +1,165 @@
-# iVote - Secure Voting Platform
+# iVote — Secure Online Voting System
 
-A full-stack secure voting application built with a modern architecture:
-- **Frontend**: Next.js (React)
-- **Backend**: FastAPI (Python)
+A university election platform with **end-to-end encrypted voting** using Paillier homomorphic encryption, face verification for voter identity, and a full election lifecycle management system.
 
-## 🚀 Getting Started
+- **Frontend**: Next.js 14 (React, TypeScript, Tailwind CSS v4)
+- **Backend**: FastAPI (Python, SQLAlchemy, PostgreSQL)
+- **Encryption**: Pure-Python Paillier homomorphic encryption (2048-bit keys) — ballots encrypted client-side, tallied server-side without ever decrypting individual votes
+- **Face Verification**: facenet-pytorch (InceptionResnetV1 + MTCNN) with blink-based liveness detection
 
-This repository is ready for GitHub and local development.
+---
 
-### 1. Push to GitHub
-First, push this codebase to a GitHub repository:
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin <your-github-repo-url>
-git push -u origin main
-```
+## Features
 
-### 2. Run locally
-#### Backend
+### For Students
+- **Multi-stage registration** (credentials → academic details → ID card upload → webcam photo)
+- **Browse candidates** per position with profiles and manifestos
+- **Apply for candidacy** during nomination periods
+- **Cast votes** with face verification (liveness blink detection + face matching) and Paillier-encrypted ballots
+- **View published election results** with per-position charts and turnout statistics
+
+### For Election Heads (Admin)
+- **Student management** — verify/reject registrations, view ID cards and profile photos
+- **Election lifecycle control** — create elections with positions, manage transitions (draft → nomination → voting → closed → results)
+- **Candidate management** — approve/reject candidacy applications
+- **Homomorphic tally** — automatic encrypted tally aggregation with private key erasure after completion
+- **Results publishing** — release results with turnout donut charts and ranked bar charts
+- **Audit trail** — full event logging with search and CSV export
+- **Automated scheduler** — APScheduler handles automatic status transitions based on configured dates
+
+### Security
+- End-to-end encrypted voting (ballots never decrypted individually)
+- Face verification + liveness detection for voter identity
+- JWT authentication with bcrypt password hashing
+- Rate limiting, security headers, request logging middleware
+- Audit logging for all write operations
+- Private key erasure after tally completion
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Python 3.13+
+- Node.js 18+
+- PostgreSQL
+
+### Backend Setup
+
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
-Create a `.env` file in `backend/` with the required variables:
-```bash
-DATABASE_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/ivotedb
-SECRET_KEY=your-secret-key
+
+Create `backend/.env`:
+
+```env
+DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/ivotedb
+SECRET_KEY=a-strong-secret-key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
-CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 CORS_ORIGINS=http://localhost:3000
 ```
-Then start the backend:
+
 ```bash
+python -m init_db
 uvicorn app.main:app --reload
 ```
 
-#### Frontend
+### Frontend Setup
+
 ```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
-Open: `http://localhost:3000`
 
-### 3. Production notes
-For production, set `NEXT_PUBLIC_API_BASE_URL` to your backend host and configure `CORS_ORIGINS` accordingly. Do not commit secret values.
+Open http://localhost:3000
+
+### Create an Admin
+
+```bash
+cd backend
+python manage.py create-admin --email admin@example.com --password "Str0ng!Pass" --name "Admin Name"
+```
 
 ---
 
-## 📁 Project Structure
+## Architecture
+
+```
+┌─────────────┐     HTTP/JSON      ┌──────────────┐     SQL      ┌────────────┐
+│  Next.js     │ ◄──────────────► │  FastAPI      │ ◄──────────► │ PostgreSQL │
+│  (Frontend)  │    JWT Bearer     │  (Backend)    │              │            │
+│              │                   │               │              │            │
+│  Paillier    │                   │  Paillier     │              │ 9 tables   │
+│  encryption  │  encrypted ballot │  homomorphic  │              │            │
+│  (client)    │ ─────────────────►│  tally (svr)  │              │            │
+└─────────────┘                   └──────────────┘              └────────────┘
+```
+
+### Backend (`backend/`)
+
+| Layer | Directory | Description |
+|-------|-----------|-------------|
+| **Entry** | `app/main.py` | FastAPI app, middleware, router registration, lifespan |
+| **Config** | `app/core/config.py` | Environment variables, upload paths, constants |
+| **Security** | `app/core/security.py` | bcrypt password hashing |
+| **Crypto** | `app/core/paillier.py`, `crypto.py` | Paillier HE implementation (keygen, encrypt, decrypt, sum, verify) |
+| **DB** | `app/db/models.py` | 9 SQLAlchemy models (User, Election, Position, Candidate, VoterParticipation, EncryptedVote, HETally, AuditLog, Notification) |
+| **Routers** | `app/routers/` | auth, users, elections, candidates, voting, results |
+| **Services** | `app/services/` | Business logic for auth, voting, elections, candidates, results, face verification, HE tally, audit, scheduler |
+| **Middleware** | `app/core/middleware.py` | Security headers, request logging, rate limiting, audit logging |
+| **CLI** | `manage.py` | Admin creation and listing |
+
+### Frontend (`frontend/`)
+
+| Layer | Path | Description |
+|-------|------|-------------|
+| **Pages** | `app/` | Login, register (4-step), forgot/reset password, admin (5 pages), student (5 pages) |
+| **Components** | `components/ui/` | Button, Card, Badge, Modal, FormControls, Alert, Spinner |
+| **Shared** | `components/shared/` | NotificationPanel, ElectionCountdown, HEBadge, Pagination, ProtectedImage |
+| **Hooks** | `hooks/` | useAuth, useCamera, useTheme, useCountUp |
+| **Lib** | `lib/` | API client, Paillier encryption (client-side), store, formatters |
 
 ---
 
-## 📁 Project Structure
+### Election Lifecycle
 
 ```
-iVote
-├─ LICENSE
-├─ README.md
-├─ backend
-│  ├─ README.md
-│  ├─ app
-│  │  ├─ __init__.py
-│  │  ├─ core
-│  │  │  ├─ cloudinary_storage.py
-│  │  │  ├─ config.py
-│  │  │  ├─ crypto.py
-│  │  │  ├─ email_service.py
-│  │  │  ├─ face_weights
-│  │  │  │  ├─ facenet_vggface2.pt
-│  │  │  │  └─ haarcascade_frontalface_default.xml
-│  │  │  ├─ middleware.py
-│  │  │  ├─ paillier.py
-│  │  │  └─ security.py
-│  │  ├─ db
-│  │  │  ├─ __init__.py
-│  │  │  ├─ database.py
-│  │  │  └─ models.py
-│  │  ├─ main.py
-│  │  ├─ routers
-│  │  │  ├─ __init__.py
-│  │  │  ├─ auth.py
-│  │  │  ├─ candidates.py
-│  │  │  ├─ elections.py
-│  │  │  ├─ results.py
-│  │  │  ├─ users.py
-│  │  │  └─ voting.py
-│  │  ├─ schemas
-│  │  │  └─ schemas.py
-│  │  ├─ services
-│  │  │  ├─ __init__.py
-│  │  │  ├─ audit_notification_service.py
-│  │  │  ├─ auth_services.py
-│  │  │  ├─ candidate_service.py
-│  │  │  ├─ deepface_verification_service.py
-│  │  │  ├─ election_service.py
-│  │  │  ├─ face_verification_service.py
-│  │  │  ├─ he_tally_service.py
-│  │  │  ├─ result_service.py
-│  │  │  ├─ schedular_service.py
-│  │  │  └─ voting_service.py
-│  │  └─ utils
-│  │     ├─ dependencies.py
-│  │     └─ helpers.py
-│  ├─ init_db.py
-│  ├─ manage.py
-│  └─ requirements.txt
-└─ frontend
-   ├─ app
-   │  ├─ admin
-   │  │  ├─ audit
-   │  │  │  └─ page.tsx
-   │  │  ├─ candidates
-   │  │  │  └─ page.tsx
-   │  │  ├─ dashboard
-   │  │  │  └─ page.tsx
-   │  │  ├─ elections
-   │  │  │  └─ page.tsx
-   │  │  ├─ layout.tsx
-   │  │  ├─ page.tsx
-   │  │  ├─ results
-   │  │  │  └─ page.tsx
-   │  │  └─ students
-   │  │     └─ page.tsx
-   │  ├─ forgot-password
-   │  │  └─ page.tsx
-   │  ├─ globals.css
-   │  ├─ layout.tsx
-   │  ├─ not-found.tsx
-   │  ├─ page.tsx
-   │  ├─ register
-   │  │  └─ page.tsx
-   │  ├─ reset-password
-   │  │  └─ page.tsx
-   │  └─ student
-   │     ├─ candidacy
-   │     │  └─ page.tsx
-   │     ├─ candidates
-   │     │  └─ page.tsx
-   │     ├─ dashboard
-   │     │  └─ page.tsx
-   │     ├─ layout.tsx
-   │     ├─ page.tsx
-   │     ├─ results
-   │     │  └─ page.tsx
-   │     └─ vote
-   │        └─ page.tsx
-   ├─ components
-   │  ├─ AppShell.tsx
-   │  ├─ Providers.tsx
-   │  ├─ layout
-   │  ├─ shared
-   │  │  ├─ ConfirmDialog.tsx
-   │  │  ├─ ElectionCountdown.tsx
-   │  │  ├─ EmptyState.tsx
-   │  │  ├─ HEBadge.tsx
-   │  │  ├─ NotificationPanel.tsx
-   │  │  ├─ Pagination.tsx
-   │  │  ├─ ProtectedImage.tsx
-   │  │  ├─ SkeletonTable.tsx
-   │  │  └─ StarField.tsx
-   │  └─ ui
-   │     ├─ Alert.tsx
-   │     ├─ Badge.tsx
-   │     ├─ Button.tsx
-   │     ├─ Card.tsx
-   │     ├─ FormControls.tsx
-   │     ├─ Modal.tsx
-   │     └─ Spinner.tsx
-   ├─ hooks
-   │  ├─ useAuth.ts
-   │  ├─ useCamera.ts
-   │  ├─ useCountUp.ts
-   │  └─ useTheme.ts
-   ├─ lib
-   │  ├─ api.ts
-   │  ├─ formatters.ts
-   │  ├─ paillier.ts
-   │  └─ store.ts
-   ├─ next-env.d.ts
-   ├─ next.config.mjs
-   ├─ package-lock.json
-   ├─ package.json
-   ├─ postcss.config.mjs
-   ├─ public
-   │  └─ favicon.svg
-   ├─ tailwind.config.ts
-   ├─ tsconfig.json
-   └─ tsconfig.tsbuildinfo
-
+DRAFT ──► NOMINATION_OPEN ──► NOMINATION_CLOSED ──► VOTING_OPEN ──► CLOSED ──► RESULTS_PUBLISHED
+   ▲            │                    │                    │              │
+   └────────────┘                    │                    │              │
+      (revert)                       │                    │              │
+                         Scheduler auto-advances ◄───────┴──────────────┘
+                         based on configured dates
 ```
+
+- **DRAFT → NOMINATION_OPEN**: When `nomination_start` is reached
+- **NOMINATION_OPEN → NOMINATION_CLOSED**: When `nomination_end` is reached
+- **NOMINATION_CLOSED → VOTING_OPEN**: When `voting_start` is reached (Paillier keys generated, voter eligibility snapshot)
+- **VOTING_OPEN → CLOSED**: When `voting_end` is reached (HE tally runs in background)
+- **CLOSED → RESULTS_PUBLISHED**: Admin publishes (HE tally aggregates, decrypts, erases private key)
+
+---
+
+## API Overview
+
+| Group | Base Path | Key Endpoints |
+|-------|-----------|---------------|
+| Auth | `/api/auth` | login, register (4 stages), forgot/reset password, me, notifications |
+| Students | `/api/admin/students` | pending, all, verify, reject |
+| Elections | `/api/elections`, `/api/admin/elections` | list, create, update status, lock candidates, stats |
+| Candidates | `/api/candidates`, `/api/admin/candidates` | apply, approve/reject, photo serving |
+| Voting | `/api/voting`, `/api/vote` | face verification, cast encrypted ballot |
+| Results | `/api/elections/{id}/results` | view results (student), publish (admin) |
+| Health | `/health` | liveness/readiness probe |
+| Audit | `/api/admin/audit-logs` | list, export CSV |
+
+Full OpenAPI docs at http://localhost:8000/docs
+
+---
+
+## License
+
+[MIT](LICENSE)

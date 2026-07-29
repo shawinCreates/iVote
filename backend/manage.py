@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI helper for iVote backend administration."""
+"""CLI helper for Online Voting System backend administration."""
 
 import argparse
 import sys
@@ -54,7 +54,7 @@ def cmd_list_admins(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="iVote backend management CLI")
+    parser = argparse.ArgumentParser(description="Online Voting System backend management CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_create = sub.add_parser("create-admin", help="Create an admin (election_head) user")

@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Secure Online Voting System API",
+    title="Online Voting System API",
     description="Secure online voting system with homomorphic encryption",
     version="1.0.0",
     lifespan=lifespan,
@@ -102,7 +102,7 @@ app.include_router(voting.router)
 @app.get("/", tags=["Root"], include_in_schema=False)
 async def root():
     return {
-        "service": "Secure Online Voting System API",
+        "service": "Online Voting System API",
         "version": "1.0.0",
         "status":  "running",
         "docs":    "/docs",

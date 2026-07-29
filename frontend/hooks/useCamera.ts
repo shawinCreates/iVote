@@ -10,10 +10,24 @@ export function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isActive, setIsActive] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const readyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setIsActive(false);
+    readyRef.current = false;
+    setIsReady(false);
+  }, []);
 
   const startCamera = useCallback(async () => {
     setError(null);
+    readyRef.current = false;
+    setIsReady(false);
+    stopCamera();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -28,28 +42,35 @@ export function useCamera() {
         "Could not access camera.";
       setError(msg);
     }
-  }, []);
+  }, [stopCamera]);
 
   useEffect(() => {
     if (!isActive || !videoRef.current || !streamRef.current) return;
     const video = videoRef.current;
     video.srcObject = streamRef.current;
     video.onloadedmetadata = async () => {
-      try { await video.play(); } catch {}
+      try {
+        await video.play();
+        readyRef.current = true;
+        setIsReady(true);
+      } catch {}
     };
   }, [isActive]);
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setIsActive(false);
-  }, []);
-
   const captureFrames = useCallback(
     (onPrompt?: (index: number) => void): Promise<string[]> =>
-      new Promise((resolve, reject) => {
-        if (!videoRef.current || !isActive) { reject(new Error("Camera not active")); return; }
+      new Promise(async (resolve, reject) => {
+        if (!videoRef.current) { reject(new Error("Camera not active")); return; }
+
+        for (let i = 0; i < 50; i++) {
+          if (readyRef.current && videoRef.current?.videoWidth) break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        if (!readyRef.current || !videoRef.current?.videoWidth) {
+          reject(new Error("Camera not ready"));
+          return;
+        }
+
         const frames: string[] = [];
         const canvas = document.createElement("canvas");
         const video = videoRef.current;
@@ -68,10 +89,10 @@ export function useCamera() {
         };
         captureFrame();
       }),
-    [isActive]
+    []
   );
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  return { videoRef, isActive, error, startCamera, stopCamera, captureFrames, BLINK_FRAME };
+  return { videoRef, isActive, isReady, error, startCamera, stopCamera, captureFrames, BLINK_FRAME };
 }
