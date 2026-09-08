@@ -1,6 +1,7 @@
 "use client";
 
 import Reveal from "@/components/landing/Reveal";
+import Image from "next/image";
 
 export default function SecuritySection() {
   return (
@@ -8,14 +9,15 @@ export default function SecuritySection() {
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="grid lg:grid-cols-[1.2fr_0.9fr] gap-12 items-start">
           {/* Copy left */}
+          <Reveal>
           <div>
-            <h2 className="font-[var(--font-display)] font-black text-2xl md:text-3xl text-white mb-4">
+            <h2 className="font-[var(--font-display)] font-black text-2xl md:text-3xl text-text-1 mb-4">
               Your ballot, private by design
             </h2>
-            <p className="text-base text-text-3 mb-6">
+            <p className="text-base text-text-2 mb-6">
               iVote protects every ballot with layered security built on cryptography and verification.
             </p>
-            <ul className="space-y-3 text-sm text-text-3">
+            <ul className="space-y-3 text-sm text-text-2">
               <li className="flex items-start gap-2">
                 <span className="font-mono text-[10px] text-cyan mr-1">●</span>
                 <span>Paillier homomorphic encryption keeps ballots as ciphertext from cast to count.</span>
@@ -34,18 +36,21 @@ export default function SecuritySection() {
               </li>
             </ul>
           </div>
+          </Reveal>
 
           {/* Photo right */}
-          <div className="relative rounded-[var(--radius-xl)] overflow-hidden border border-border">
-            <img
-              src="https://picsum.photos/seed/ivote-security/1600/1000"
-              alt="iVote security illustration"
-              className="w-full h-[300px] object-cover"
+          <Reveal className="relative h-[300px] rounded-[var(--radius-xl)] overflow-hidden border border-border">
+            <Image
+              src="/images/security.jpeg"
+              alt="Layered cryptographic lattice protecting an anonymous ballot"
+              fill
+              sizes="(max-width: 1023px) 100vw, 40vw"
+              className="object-cover object-[70%_center]"
             />
             <div
               className="absolute inset-0 bg-gradient-to-t from-void via-void/20 to-transparent rounded-[var(--radius-xl)]"
             />
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>

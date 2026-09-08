@@ -1,22 +1,38 @@
 "use client";
 
-import Link from "next/link";
 import Reveal from "@/components/landing/Reveal";
+import Image from "next/image";
+import { FiBarChart2, FiLock, FiShield, FiUserCheck } from "react-icons/fi";
+import type { IconType } from "react-icons";
 
-const BENTO_ITEMS = [
+type BentoItem = {
+  id: string;
+  title: string;
+  body: string;
+  bg: "void" | "cyan" | "gold" | "gradient";
+  span: string;
+  icon: IconType;
+  image?: string;
+};
+
+const BENTO_ITEMS: BentoItem[] = [
   {
     id: "encryption",
     title: "End-to-end ballot encryption",
     body:
       "Paillier homomorphic encryption keeps ballots as ciphertext from cast to count, with no plaintext ever exposed.",
     bg: "void",
-    image: "https://picsum.photos/seed/ivote-bento-enc/800/500",
+    span: "md:col-span-4",
+    icon: FiLock,
+    image: "/images/featureencryption.jpeg",
   },
   {
     id: "identity",
     title: "Face-verified identity",
     body: "Liveness + face match before casting ensures each vote belongs to a verified voter.",
     bg: "cyan",
+    span: "md:col-span-2",
+    icon: FiUserCheck,
   },
   {
     id: "audit",
@@ -24,12 +40,16 @@ const BENTO_ITEMS = [
     body:
       "Every system action is logged and exportable as a tamper-proof CSV for full transparency.",
     bg: "gold",
+    span: "md:col-span-2",
+    icon: FiShield,
   },
   {
     id: "results",
     title: "Live results",
     body: "Verified tallies published after polls close, audit-ready and publicly verifiable.",
     bg: "gradient",
+    span: "md:col-span-4",
+    icon: FiBarChart2,
   },
 ];
 
@@ -38,12 +58,14 @@ function BentoCell({
   title,
   body,
   bg,
+  icon: Icon,
   image,
 }: {
   id: string;
   title: string;
   body: string;
-  bg: string;
+  bg: BentoItem["bg"];
+  icon: IconType;
   image?: string;
 }) {
   const bgClasses =
@@ -57,21 +79,28 @@ function BentoCell({
 
   return (
     <div
-      className={`rounded-[var(--radius-lg)] overflow-hidden border border-border ${bgClasses} transition-colors hover:border-cyan/20`}
+      className={`h-full min-h-[250px] rounded-[var(--radius-lg)] overflow-hidden border border-border ${bgClasses} transition-colors hover:border-cyan/30 flex flex-col`}
     >
       {image && (
-        <img
-          src={image}
-          alt={`${id} background`}
-          className="h-48 w-full object-cover"
-        />
-      )}
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-4 h-4 rounded bg-cyan/20" />
-          <span className="text-xs uppercase tracking-widest text-text-2">{title}</span>
+        <div className="relative h-48 shrink-0">
+          <Image
+            src={image}
+            alt={`${title} visualization`}
+            fill
+            sizes="(max-width: 767px) 100vw, 66vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-void/60" />
         </div>
-        <p className="text-sm text-text-3 line-clamp-2">{body}</p>
+      )}
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-7 h-7 rounded-[var(--radius-sm)] bg-cyan/10 border border-cyan/20 flex items-center justify-center shrink-0">
+            <Icon className="w-4 h-4 text-cyan" aria-hidden="true" />
+          </span>
+          <span className="text-sm font-[var(--font-display)] font-bold text-text-1">{title}</span>
+        </div>
+        <p className="text-sm text-text-2 leading-relaxed max-w-[48ch]">{body}</p>
       </div>
     </div>
   );
@@ -85,13 +114,14 @@ export default function FeatureBento() {
           Every vote, protected
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          {BENTO_ITEMS.map((item) => (
-            <Reveal key={item.id} delay={item.id === "encryption" ? 0 : item.id === "identity" ? 0.1 : item.id === "audit" ? 0.2 : 0.3}>
+          {BENTO_ITEMS.map((item, index) => (
+            <Reveal key={item.id} delay={index * 0.08} className={item.span}>
               <BentoCell
                 id={item.id}
                 title={item.title}
                 body={item.body}
                 bg={item.bg}
+                icon={item.icon}
                 image={item.image}
               />
             </Reveal>

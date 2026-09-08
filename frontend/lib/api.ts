@@ -1,4 +1,5 @@
 import { getToken, clearStore } from "./store";
+import { waitForBackend } from "./backendHealth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -9,35 +10,13 @@ function buildUrl(path: string) {
 const NO_REPLAY_PATHS = new Set(["/api/vote", "/api/voting/verify-face"]);
 
 function isWakeStatus(status: number) {
-  return status === 502 || status === 503 || status === 504;
+  // Render may answer with a gateway error while its instance is starting;
+  // 500 is included for deployments that surface startup failures directly.
+  return status === 500 || status === 502 || status === 503 || status === 504;
 }
 
 function isReplayable(path: string) {
-  return !NO_REPLAY_PATHS.has(path);
-}
-
-async function fetchWithWake(
-  path: string,
-  options: RequestInit
-): Promise<Response> {
-  const doFetch = () => fetch(buildUrl(path), options);
-  let res: Response;
-  try {
-    res = await doFetch();
-  } catch {
-    const ok = await (await import("@/lib/backendHealth")).waitForBackend();
-    if (!ok) throw new Error("The server is taking too long to wake.");
-    if (!isReplayable(path)) throw new Error("Connection restored. Please try again.");
-    return await doFetch();
-  }
-  if (isWakeStatus(res.status) && isReplayable(path)) {
-    const { waitForBackend } = await import("@/lib/backendHealth");
-    const ok = await waitForBackend();
-    if (!ok) throw new Error("The server is taking too long to wake.");
-    if (!isReplayable(path)) throw new Error("Connection restored. Please try again.");
-    return await doFetch();
-  }
-  return res;
+  return !NO_REPLAY_PATHS.has(path.split("?")[0]);
 }
 
 export class ApiError extends Error {
@@ -47,6 +26,40 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
+}
+
+async function recoverFromWake(
+  path: string,
+  doFetch: () => Promise<Response>,
+): Promise<Response> {
+  const healthy = await waitForBackend();
+  if (!healthy) {
+    throw new ApiError("The voting server is still waking up. Please try again.", 503);
+  }
+  if (!isReplayable(path)) {
+    throw new ApiError("The server is ready. Please submit your request again.", 503);
+  }
+  try {
+    return await doFetch();
+  } catch {
+    throw new ApiError("The server woke up, but the request could not be completed. Please try again.", 503);
+  }
+}
+
+async function fetchWithWake(
+  path: string,
+  options: RequestInit,
+): Promise<Response> {
+  const doFetch = () => fetch(buildUrl(path), options);
+  let res: Response;
+  try {
+    res = await doFetch();
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    return recoverFromWake(path, doFetch);
+  }
+  if (isWakeStatus(res.status)) return recoverFromWake(path, doFetch);
+  return res;
 }
 
 export function extractError(err: any): string {

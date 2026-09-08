@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { FiMenu, FiX } from "react-icons/fi";
 import { useState } from "react";
-import Reveal from "@/components/landing/Reveal";
 
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
@@ -15,23 +14,23 @@ export default function Nav() {
   const [mobile, setMobile] = useState(false);
 
   return (
-    <header className="border-b border-border bg-deep/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border bg-deep/90 backdrop-blur-md">
       <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href="#top" className="flex items-center gap-2" aria-label="iVote home">
           <span className="font-[var(--font-display)] font-black text-2xl text-white tracking-wider">
             i<span className="text-gold">Vote</span>
           </span>
           <span className="hidden sm:inline-block text-[10px] uppercase tracking-[0.25em] text-text-3 font-body font-medium">
             University Elections
           </span>
-        </div>
+        </Link>
 
         <nav className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="text-[13px] text-text-2 hover:text-white transition-colors cursor-pointer"
+              className="text-[13px] text-text-2 hover:text-text-1 transition-colors cursor-pointer"
             >
               {l.label}
             </a>
@@ -45,6 +44,10 @@ export default function Nav() {
         </nav>
 
         <button
+          type="button"
+          aria-label={mobile ? "Close menu" : "Open menu"}
+          aria-expanded={mobile}
+          aria-controls="mobile-nav"
           className="md:hidden flex items-center gap-2 p-2 rounded-[var(--radius-md)] bg-border hover:bg-border-bright transition-colors"
           onClick={() => setMobile(!mobile)}
         >
@@ -53,12 +56,13 @@ export default function Nav() {
       </div>
 
       {mobile && (
-        <div className="mt-6 max-w-full border-t border-border bg-deep px-6 py-4 flex flex-col gap-4">
+        <div id="mobile-nav" className="md:hidden border-t border-border bg-deep px-6 py-4 flex flex-col gap-4">
           {NAV_LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="text-[14px] text-text-2 hover:text-white transition-colors"
+              className="text-[14px] text-text-2 hover:text-text-1 transition-colors"
+              onClick={() => setMobile(false)}
             >
               {l.label}
             </a>
@@ -66,12 +70,14 @@ export default function Nav() {
           <Link
             href="/login"
             className="font-[var(--font-display)] font-bold text-[11px] uppercase tracking-wider text-gold"
+            onClick={() => setMobile(false)}
           >
             Sign In
           </Link>
           <Link
             href="/register"
             className="text-cyan font-semibold hover:underline"
+            onClick={() => setMobile(false)}
           >
             Create account
           </Link>

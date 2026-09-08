@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { getMe, login as apiLogin } from "@/lib/api";
 import { getToken, setToken, setUser, getUser, clearStore } from "@/lib/store";
 
@@ -20,8 +21,19 @@ export function useAuthProvider() {
   const [user, setUserState] = useState<any>(() => getUser());
   const [isLoading, setIsLoading] = useState(true);
   const userRef = useRef(user);
+  const authCheckStarted = useRef(false);
+  const pathname = usePathname();
 
   useEffect(() => {
+    // The public landing page is static. Do not wake or validate the API
+    // merely because a visitor has an old token in local storage.
+    if (pathname === "/") {
+      setIsLoading(false);
+      return;
+    }
+    if (authCheckStarted.current) return;
+    authCheckStarted.current = true;
+
     const storedToken = getToken();
     if (!storedToken) { setIsLoading(false); return; }
     let cancelled = false;
@@ -40,7 +52,7 @@ export function useAuthProvider() {
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [pathname]);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await apiLogin(email, password);
