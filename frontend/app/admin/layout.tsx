@@ -10,7 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || !isAdmin)) router.push("/");
+    if (!isLoading && (!isAuthenticated || !isAdmin)) router.push("/login");
   }, [isLoading, isAuthenticated, isAdmin, router]);
 
   if (isLoading || !isAuthenticated || !isAdmin) return <FullPageSpinner />;

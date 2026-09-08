@@ -73,7 +73,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   function handleLogout() {
     logout();
     toast.success("Signed out successfully");
-    router.push("/");
+    router.push("/login");
   }
 
   return (

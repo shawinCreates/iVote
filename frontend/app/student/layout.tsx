@@ -10,7 +10,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) router.push("/");
+    if (!isLoading && !isAuthenticated) router.push("/login");
     if (!isLoading && isAdmin) router.push("/admin/dashboard");
   }, [isLoading, isAuthenticated, isAdmin, router]);
 

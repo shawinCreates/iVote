@@ -21,7 +21,7 @@ function ResetForm() {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     setError(""); setLoading(true);
-    try { await resetPassword(token, password); toast.success("Password reset!"); router.push("/"); }
+    try { await resetPassword(token, password); toast.success("Password reset!"); router.push("/login"); }
     catch (err) { setError(extractError(err)); }
     finally { setLoading(false); }
   };

@@ -3,6 +3,8 @@ import { ReactNode, useState, useEffect, useCallback } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthContext, useAuthProvider } from "@/hooks/useAuth";
 import { ThemeContext, useTheme, type Theme } from "@/hooks/useTheme";
+import { subscribeWake, getWakeState } from "@/lib/backendHealth";
+import WakeupOverlay from "@/components/shared/WakeupOverlay";
 
 function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
@@ -69,6 +71,7 @@ export default function Providers({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={auth}>
       <ThemeProvider>
         <ThemedToaster />
+        <WakeupOverlay />
         {children}
       </ThemeProvider>
     </AuthContext.Provider>

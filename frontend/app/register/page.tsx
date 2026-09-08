@@ -301,7 +301,7 @@ export default function RegisterPage() {
       await registerStage4(stageToken, capturedPhoto);
       camera.stopCamera();
       toast.success("Registration complete! Awaiting verification.");
-      router.push("/");
+      router.push("/login");
     } catch (err) { setError(extractError(err)); }
     finally { setLoading(false); }
   };
@@ -575,7 +575,7 @@ export default function RegisterPage() {
 
             <div className="text-center mt-5 text-sm text-text-3">
               Already have an account?{" "}
-              <Link href="/" className="text-cyan font-semibold hover:underline">Sign In</Link>
+              <Link href="/login" className="text-cyan font-semibold hover:underline">Sign In</Link>
             </div>
           </div>
 

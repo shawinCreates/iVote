@@ -10,6 +10,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.0",
     "date-fns": "^4.3.0",
+    "motion": "^13.2.0",
     "next": "latest",
     "postcss": "^8.5.15",
     "react": "18.3.1",

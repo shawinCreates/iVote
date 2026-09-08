@@ -6,6 +6,40 @@ function buildUrl(path: string) {
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 }
 
+const NO_REPLAY_PATHS = new Set(["/api/vote", "/api/voting/verify-face"]);
+
+function isWakeStatus(status: number) {
+  return status === 502 || status === 503 || status === 504;
+}
+
+function isReplayable(path: string) {
+  return !NO_REPLAY_PATHS.has(path);
+}
+
+async function fetchWithWake(
+  path: string,
+  options: RequestInit
+): Promise<Response> {
+  const doFetch = () => fetch(buildUrl(path), options);
+  let res: Response;
+  try {
+    res = await doFetch();
+  } catch {
+    const ok = await (await import("@/lib/backendHealth")).waitForBackend();
+    if (!ok) throw new Error("The server is taking too long to wake.");
+    if (!isReplayable(path)) throw new Error("Connection restored. Please try again.");
+    return await doFetch();
+  }
+  if (isWakeStatus(res.status) && isReplayable(path)) {
+    const { waitForBackend } = await import("@/lib/backendHealth");
+    const ok = await waitForBackend();
+    if (!ok) throw new Error("The server is taking too long to wake.");
+    if (!isReplayable(path)) throw new Error("Connection restored. Please try again.");
+    return await doFetch();
+  }
+  return res;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -26,7 +60,6 @@ export function extractError(err: any): string {
 }
 
 export async function api<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = buildUrl(path);
   const headers = new Headers(options.headers || {});
 
   if (!(options.body instanceof FormData)) {
@@ -38,12 +71,12 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetchWithWake(path, { ...options, headers });
 
   if (res.status === 401) {
     clearStore();
-    if (typeof window !== "undefined" && window.location.pathname !== "/") {
-      window.location.href = "/";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
     }
     throw new ApiError("Unauthorized", 401);
   }
@@ -67,23 +100,30 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
 }
 
 export async function apiFetch<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = buildUrl(path);
-  const token = getToken();
   const headers = new Headers(options.headers || {});
+  const token = getToken();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(url, { ...options, headers });
+
+  const res = await fetchWithWake(path, { ...options, headers });
+
   if (res.status === 401) {
     let message = "Invalid email or password.";
-    try { const b = await res.json(); message = b?.detail?.message ?? b?.detail ?? message; } catch {}
+    try {
+      const b = await res.json();
+      message = b?.detail?.message ?? b?.detail ?? message;
+    } catch {}
     clearStore();
-    if (typeof window !== "undefined" && window.location.pathname !== "/") window.location.href = "/";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") window.location.href = "/login";
     throw new ApiError(message, 401);
   }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
-    try { const b = await res.json(); detail = b?.detail?.message ?? b?.detail ?? detail; } catch {}
+    try {
+      const b = await res.json();
+      detail = b?.detail?.message ?? b?.detail ?? detail;
+    } catch {}
     throw new ApiError(String(detail), res.status);
   }
   if (res.status === 204) return null as T;
